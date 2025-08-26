@@ -1,0 +1,19 @@
+services:
+
+  last-seen-service:
+    build:
+      context: .
+      dockerfile: ./last-seen-service/Dockerfile
+    environment:
+      MONGO_URI: mongodb://root:example@last-seen-db:27017
+    ports:
+      - "50051:50051"
+    depends_on:
+    - last-seen-db
+
+  last-seen-db:
+    image: mongo:8.0
+    container_name: chat_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
