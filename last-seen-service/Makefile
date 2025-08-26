@@ -6,6 +6,10 @@ proto:
 		--proto_path=../protos/lastseen \
 	lastseen.proto
 
+.PHONY: run
+run:
+	go run main.go
+
 .PHONY: clean
 clean:
 	rm -rf pb/

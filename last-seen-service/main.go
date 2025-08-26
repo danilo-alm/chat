@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "last-seen-service/pb"
@@ -60,7 +61,13 @@ func main() {
 
 	pb.RegisterLastSeenServiceServer(s, lastSeenServer)
 
-	log.Printf("gRPC server started on port %s", port)
+	enable_reflection := getEnv("REFLECTION", "false")
+	log.Println("Reflection enabled: ", enable_reflection)
+	if enable_reflection == "true" {
+		reflection.Register(s)
+	}
+
+	log.Println("gRPC server started on port", port)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}

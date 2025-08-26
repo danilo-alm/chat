@@ -6,6 +6,7 @@ services:
       dockerfile: ./last-seen-service/Dockerfile
     environment:
       MONGO_URI: mongodb://root:example@last-seen-db:27017
+      REFLECTION: "${REFLECTION:-false}"
     ports:
       - "50051:50051"
     depends_on:
@@ -17,3 +18,4 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example
+
