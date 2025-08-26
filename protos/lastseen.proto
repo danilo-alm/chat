@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package lastseen;
+
+option go_package = "./pb";
+
+import "google/protobuf/timestamp.proto";
+
+service LastSeenService {
+  rpc UpdateLastSeen(UpdateLastSeenRequest) returns (UpdateLastSeenResponse);
+  rpc GetLastSeen(GetLastSeenRequest) returns (GetLastSeenResponse);
+}
+
+message UpdateLastSeenRequest {
+  string user_id = 1;
+  int64 timestamp = 2;
+}
+
+message UpdateLastSeenResponse {
+  string status = 1;
+}
+
+message GetLastSeenRequest {
+  string user_id = 1;
+}
+
+message GetLastSeenResponse {
+  string user_id = 1;
+  google.protobuf.Timestamp last_seen = 2;
+}
