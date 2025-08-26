@@ -17,7 +17,7 @@ message UpdateLastSeenRequest {
 }
 
 message UpdateLastSeenResponse {
-  string status = 1;
+  bool success = 1;
 }
 
 message GetLastSeenRequest {

@@ -90,7 +90,7 @@ func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenReque
 	}
 
 	return &pb.UpdateLastSeenResponse{
-		Status: "success",
+		Success: true,
 	}, nil
 }
 
