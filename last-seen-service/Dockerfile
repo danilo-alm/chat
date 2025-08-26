@@ -15,7 +15,7 @@ RUN go mod download
 
 COPY ./protos/ ./protos/
 RUN mkdir -p pb && \
-    protoc -I /usr/include -I protos \
+    protoc -I /usr/include -I protos/lastseen \
         --go_out=./pb --go_opt=paths=source_relative \
 		--go-grpc_out=./pb --go-grpc_opt=paths=source_relative \
 	    lastseen.proto
