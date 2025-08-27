@@ -28,15 +28,12 @@ type server struct {
 	mongoClient *mongo.Client
 }
 
-var client *mongo.Client
-
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	mongo_uri := getEnv("MONGO_URI", "mongodb://root:example@mongo:27017")
-	var err error
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongo_uri))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongo_uri))
 	if err != nil {
 		log.Fatal(err)
 	}
