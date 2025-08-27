@@ -78,9 +78,9 @@ func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenReque
 
 	_, err := collection.UpdateOne(
 		ctx,
-		bson.M{"_id": req.UserId},
+		bson.M{"_id": req.GetUserId()},
 		bson.M{"$set": bson.M{
-			"last_seen": time.Unix(req.Timestamp, 0),
+			"last_seen": time.Unix(req.GetTimestamp(), 0),
 		}},
 		options.Update().SetUpsert(true),
 	)
@@ -98,7 +98,7 @@ func (s *server) GetLastSeen(ctx context.Context, req *pb.GetLastSeenRequest) (*
 	collection := s.mongoClient.Database("chatdb").Collection("last_seen")
 
 	var result UserLastSeen
-	err := collection.FindOne(ctx, bson.M{"_id": req.UserId}).Decode(&result)
+	err := collection.FindOne(ctx, bson.M{"_id": req.GetUserId()}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("user not found")
