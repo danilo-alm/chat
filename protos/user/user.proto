@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "./pb";
+
+
+service UserService {
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+    rpc GetUser(GetUserRequest) returns (GetUserResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+message User {
+    string id = 1;
+    string name = 2;
+    string username = 3;
+}
+
+message CreateUserRequest {
+    string name = 1;
+    string username = 2;
+}
+
+message CreateUserResponse {
+    User user = 1;
+}
+
+message GetUserRequest {
+    string id = 1;
+}
+
+message GetUserResponse {
+    User user = 1;
+}
+
+message DeleteUserRequest {
+    string id = 1;
+}
+
+message DeleteUserResponse {
+    bool success = 1;
+}
