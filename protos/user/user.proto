@@ -14,12 +14,11 @@ service UserService {
 message User {
     string id = 1;
     string name = 2;
-    string username = 3;
 }
 
 message CreateUserRequest {
-    string name = 1;
-    string username = 2;
+    string id = 1;
+    string name = 2;
 }
 
 message CreateUserResponse {

@@ -80,8 +80,8 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
 
 	userInsert := User{
-		Name:     req.GetName(),
-		Username: req.GetUsername(),
+		Id:   req.GetId(),
+		Name: req.GetName(),
 	}
 	result, err := collection.InsertOne(ctx, userInsert)
 	if err != nil {
@@ -126,9 +126,8 @@ func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb
 
 func mapUserToPbUser(user User) *pb.User {
 	return &pb.User{
-		Id:       user.Id,
-		Username: user.Username,
-		Name:     user.Name,
+		Id:   user.Id,
+		Name: user.Name,
 	}
 }
 
