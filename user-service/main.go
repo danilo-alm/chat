@@ -91,7 +91,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	user := mapUserToPbUser(userInsert)
 	user.Id = result.InsertedID.(primitive.ObjectID).Hex()
 
-	return &pb.CreateUserResponse{User: user}, nil
+	return &pb.CreateUserResponse{Id: user.GetId()}, nil
 }
 
 func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
