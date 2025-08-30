@@ -133,8 +133,9 @@ func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb
 
 func mapUserToPbUser(user User) *pb.User {
 	return &pb.User{
-		Id:   user.Id,
-		Name: user.Name,
+		Id:       user.Id,
+		Username: user.Username,
+		Name:     user.Name,
 	}
 }
 
