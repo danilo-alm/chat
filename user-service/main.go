@@ -95,18 +95,24 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return &pb.CreateUserResponse{Id: user.GetId()}, nil
 }
 
-func (s *server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.GetUserResponse, error) {
-	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
+func (s *server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
+	return getUser(ctx, s.mongoClient, bson.M{"_id": req.GetId()})
+}
 
+func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
+	return getUser(ctx, s.mongoClient, bson.M{"username": req.GetUsername()})
+}
+
+func getUser(ctx context.Context, c *mongo.Client, filter any) (*pb.GetUserResponse, error) {
 	var user User
-	err := collection.FindOne(ctx, bson.M{"_id": req.GetId()}).Decode(&user)
+	collection := c.Database(mongoDatabase).Collection(mongoCollection)
+	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
-
 	return &pb.GetUserResponse{
 		User: mapUserToPbUser(user),
 	}, nil
