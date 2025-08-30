@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "./pb";
+
+import "google/protobuf/timestamp.proto";
+
+service AuthService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+message CreateUserRequest {
+    string name = 2;
+    string username = 3;
+    string password = 4;
+}
+
+message CreateUserResponse {
+    string id = 1;
+}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2; 
+}
+
+message LoginResponse {
+    string user_id = 1;
+    string username = 2;
+    string access_token = 3;
+    string refresh_token = 4;
+    google.protobuf.Timestamp expires_at = 5;
+}
