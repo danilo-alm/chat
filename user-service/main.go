@@ -80,8 +80,9 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
 
 	userInsert := User{
-		Id:   req.GetId(),
-		Name: req.GetName(),
+		Id:       req.User.GetId(),
+		Name:     req.User.GetName(),
+		Username: req.User.GetUsername(),
 	}
 	result, err := collection.InsertOne(ctx, userInsert)
 	if err != nil {
