@@ -40,14 +40,6 @@ type RefreshToken struct {
 }
 
 func main() {
-	dsn := "user:secret@tcp(auth-db:3306)/authdb?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	db.AutoMigrate(&User{}, &RefreshToken{})
-
 	port := getEnv("GRPC_PORT", "50051")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
@@ -60,6 +52,15 @@ func main() {
 		log.Fatalf("Failed to connect to User Service: %v", err)
 	}
 	defer conn.Close()
+
+	db_uri := getEnv("MARIADB_URI", "user:secret@tcp(auth-db:3306)/authdb")
+	dsn := fmt.Sprintf("%s?charset=utf8mb4&parseTime=True&loc=Local", db_uri)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db.AutoMigrate(&User{}, &RefreshToken{})
 
 	userServiceClient := userpb.NewUserServiceClient(conn)
 
