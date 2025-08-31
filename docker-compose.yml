@@ -67,6 +67,17 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: secret
     volumes:
       - last_seen_data:/data/db
+  
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - auth-service
+      - user-service
+      - last-seen-service
 
 volumes:
   last_seen_data:
