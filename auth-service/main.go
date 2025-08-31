@@ -37,8 +37,9 @@ type User struct {
 }
 
 type RefreshToken struct {
-	UserId    string    `gorm:"primaryKey;not null"`
-	Token     string    `gorm:"primaryKey;not null"`
+	Id        uint      `gorm:"primaryKey"`
+	UserId    string    `gorm:"not null;index"`
+	Token     string    `gorm:"not null;uniqueIndex;size:512"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	ExpiresAt time.Time `gorm:"not null"`
 }
@@ -131,7 +132,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	})
 
 	if err != nil {
-		return nil, err // rollback happens automatically
+		return nil, err
 	}
 	return returnValue, nil
 }
@@ -166,6 +167,7 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 
 	return &pb.LoginResponse{
 		UserId:                userId,
+		Username:              req.Username,
 		AccessToken:           access,
 		AccessTokenExpiresAt:  timestamppb.New(accessExp),
 		RefreshToken:          refresh,
