@@ -50,11 +50,15 @@ const (
 )
 
 var (
-	accessSecret  = []byte(getEnv("ACCESS_TOKEN_SECRET", "dev-access-secret"))
-	refreshSecret = []byte(getEnv("REFRESH_TOKEN_SECRET", "dev-refresh-secret"))
+	accessSecret  = []byte(os.Getenv("ACCESS_TOKEN_SECRET"))
+	refreshSecret = []byte(os.Getenv("REFRESH_TOKEN_SECRET"))
 )
 
 func main() {
+	if len(accessSecret) == 0 || len(refreshSecret) == 0 {
+		log.Fatalf("ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must be set")
+	}
+
 	port := getEnv("GRPC_PORT", "50051")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
