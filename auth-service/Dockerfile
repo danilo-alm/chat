@@ -28,7 +28,7 @@ RUN	mkdir -p user-pb && \
 
 COPY auth-service/main.go ./main.go
 
-RUN go build -o myapp main.go
+RUN go build -ldflags="-s -w" -o myapp main.go
 
 # 2. Run stage
 FROM alpine:latest

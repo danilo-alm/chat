@@ -8,12 +8,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -34,10 +37,21 @@ type User struct {
 }
 
 type RefreshToken struct {
-	UserId    uint      `gorm:"primaryKey;not null"`
+	UserId    string    `gorm:"primaryKey;not null"`
 	Token     string    `gorm:"primaryKey;not null"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
 	ExpiresAt time.Time `gorm:"not null"`
 }
+
+const (
+	accessTTL  = 24 * time.Hour
+	refreshTTL = 7 * 24 * time.Hour
+)
+
+var (
+	accessSecret  = []byte(getEnv("ACCESS_TOKEN_SECRET", "dev-access-secret"))
+	refreshSecret = []byte(getEnv("REFRESH_TOKEN_SECRET", "dev-refresh-secret"))
+)
 
 func main() {
 	port := getEnv("GRPC_PORT", "50051")
@@ -47,7 +61,7 @@ func main() {
 	}
 
 	user_service_addr := getEnv("USER_SERVICE_ADDR", "user-service:50051")
-	conn, err := grpc.NewClient(user_service_addr)
+	conn, err := grpc.NewClient(user_service_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to User Service: %v", err)
 	}
@@ -122,11 +136,72 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return returnValue, nil
 }
 
-func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	if u.Id == "" {
-		u.Id = uuid.New().String()
+func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	userDetails, err := s.userClient.GetUserByUsername(
+		ctx, &userpb.GetUserByUsernameRequest{Username: req.GetUsername()})
+	if err != nil {
+		return nil, err
 	}
-	return
+
+	var userCredentials User
+	userId := userDetails.GetUser().GetId()
+	if err = s.mariadbClient.Where("id = ?", userId).First(&userCredentials).Error; err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	}
+	if !checkPasswordHash(req.GetPassword(), userCredentials.Password) {
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	}
+
+	access, accessExp, err := signAccessToken(userId)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to sign access token")
+	}
+	refresh, refreshExp, err := signRefreshToken(userId)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to sign refresh token")
+	}
+	if err := saveRefreshToken(s.mariadbClient, userId, refresh, refreshExp); err != nil {
+		return nil, status.Error(codes.Internal, "failed to persist refresh token")
+	}
+
+	return &pb.LoginResponse{
+		UserId:                userId,
+		AccessToken:           access,
+		AccessTokenExpiresAt:  timestamppb.New(accessExp),
+		RefreshToken:          refresh,
+		RefreshTokenExpiresAt: timestamppb.New(refreshExp),
+	}, nil
+}
+
+func signAccessToken(userId string) (string, time.Time, error) {
+	return issueToken(userId, accessTTL, accessSecret)
+}
+
+func signRefreshToken(userId string) (string, time.Time, error) {
+	return issueToken(userId, refreshTTL, refreshSecret)
+}
+
+func issueToken(userId string, TTL time.Duration, secret []byte) (string, time.Time, error) {
+	now := time.Now()
+	exp := now.Add(TTL)
+	claims := jwt.RegisteredClaims{
+		Subject:   userId,
+		ID:        uuid.NewString(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(exp),
+	}
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, err := t.SignedString(secret)
+	return s, exp, err
+}
+
+func saveRefreshToken(db *gorm.DB, userId, token string, exp time.Time) error {
+	rt := &RefreshToken{
+		UserId:    userId,
+		Token:     token,
+		ExpiresAt: exp,
+	}
+	return db.Save(&rt).Error
 }
 
 func hashPassword(password string) (string, error) {
@@ -137,6 +212,13 @@ func hashPassword(password string) (string, error) {
 func checkPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	if u.Id == "" {
+		u.Id = uuid.New().String()
+	}
+	return
 }
 
 func getEnv(key string, defaultValue string) string {

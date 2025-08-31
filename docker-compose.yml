@@ -1,25 +1,74 @@
 services:
 
+  user-service:
+    build:
+      context: .
+      dockerfile: ./user-service/Dockerfile
+    environment:
+      MONGO_URI: mongodb://root:secret@user-db:27017
+      REFLECTION: "${REFLECTION:-false}"
+    depends_on:
+      - user-db
+
+  user-db:
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    volumes:
+      - user_data:/data/db
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./auth-service/Dockerfile
+    environment:
+      MARIADB_URI: user:secret@tcp(auth-db:3306)/authdb
+      USER_SERVICE_ADDR: user-service:50051
+      REFLECTION: "${REFLECTION:-false}"
+      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:-supersecrettoken}"
+      REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET:-supersecretrefreshtoken}"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+
+  auth-db:
+    image: mariadb:lts
+    environment:
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=secret
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_DATABASE=authdb
+    volumes:
+      - auth_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 3s
+      interval: 3s
+      timeout: 5s
+      retries: 3
+    
   last-seen-service:
     build:
       context: .
       dockerfile: ./last-seen-service/Dockerfile
     environment:
-      MONGO_URI: mongodb://root:example@last-seen-db:27017
+      MONGO_URI: mongodb://root:secret@last-seen-db:27017
       REFLECTION: "${REFLECTION:-false}"
-    ports:
-      - "50051:50051"
     depends_on:
-    - last-seen-db
+      - last-seen-db
 
   last-seen-db:
     image: mongo:8.0
-    container_name: chat_mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_ROOT_PASSWORD: secret
     volumes:
       - last_seen_data:/data/db
 
 volumes:
   last_seen_data:
+  auth_data:
+  user_data:
