@@ -10,7 +10,6 @@ import (
 	"user-service/pb"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
@@ -49,6 +48,19 @@ func main() {
 		log.Fatal("Failed to connect to MongoDB:", err)
 	}
 	log.Println("Successfully connected to MongoDB!")
+
+	// username field should be unique
+	collection := client.Database(mongoDatabase).Collection(mongoCollection)
+	_, err = collection.Indexes().CreateOne(
+		context.TODO(),
+		mongo.IndexModel{
+			Keys:    bson.D{{Key: "username", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	port := getEnv("GRPC_PORT", "50051")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -90,7 +102,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	}
 
 	user := mapUserToPbUser(userInsert)
-	user.Id = result.InsertedID.(primitive.ObjectID).Hex()
+	user.Id = result.InsertedID.(string)
 
 	return &pb.CreateUserResponse{Id: user.GetId()}, nil
 }
