@@ -9,6 +9,7 @@ import (
 	"time"
 	"user-service/pb"
 
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -17,9 +18,9 @@ import (
 )
 
 type User struct {
-	Id       string `bson:"_id"`
-	Name     string `bson:"name"`
-	Username string `bson:"username"`
+	Id       uuid.UUID `bson:"_id"`
+	Name     string    `bson:"name"`
+	Username string    `bson:"username"`
 }
 
 type server struct {
@@ -92,9 +93,9 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
 
 	userInsert := User{
-		Id:       req.User.GetId(),
-		Name:     req.User.GetName(),
-		Username: req.User.GetUsername(),
+		Id:       uuid.New(),
+		Name:     req.GetName(),
+		Username: req.GetUsername(),
 	}
 	result, err := collection.InsertOne(ctx, userInsert)
 	if err != nil {
@@ -145,7 +146,7 @@ func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb
 
 func mapUserToPbUser(user User) *pb.User {
 	return &pb.User{
-		Id:       user.Id,
+		Id:       user.Id.String(),
 		Username: user.Username,
 		Name:     user.Name,
 	}
