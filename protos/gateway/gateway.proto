@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package gateway;
+
+service GatewayUserService {
+    rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
+}
+
+message RegisterUserRequest {
+    string username = 1;
+    string name = 2;
+}
+
+message RegisterUserResponse {
+    string id = 1;
+}
