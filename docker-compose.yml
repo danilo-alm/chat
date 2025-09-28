@@ -1,12 +1,21 @@
 services:
+  
+  gateway:
+    image: daniloalm/chat-gateway
+    environment:
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:50051}
+      LAST_SEEN_SERVICE_URL: ${LAST_SEEN_SERVICE_URL:-last-seen-service:50051}
+    depends_on:
+      - user-service
+      - auth-service
+      - last-seen-service
 
   user-service:
-    build:
-      context: .
-      dockerfile: ./user-service/Dockerfile
+    image: daniloalm/chat-user-service
     environment:
       MONGO_URI: mongodb://root:secret@user-db:27017
-      REFLECTION: "${REFLECTION:-false}"
+      GRPC_PORT: 50051
     depends_on:
       - user-db
 
@@ -19,15 +28,13 @@ services:
       - user_data:/data/db
 
   auth-service:
-    build:
-      context: .
-      dockerfile: ./auth-service/Dockerfile
+    image: daniloalm/chat-auth-service
     environment:
       MARIADB_URI: user:secret@tcp(auth-db:3306)/authdb
-      USER_SERVICE_ADDR: user-service:50051
-      REFLECTION: "${REFLECTION:-false}"
-      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:-supersecrettoken}"
-      REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET:-supersecretrefreshtoken}"
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
+      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET}"
+      REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET}"
+      GRPC_PORT: 50051
     depends_on:
       auth-db:
         condition: service_healthy
@@ -51,12 +58,10 @@ services:
       retries: 3
     
   last-seen-service:
-    build:
-      context: .
-      dockerfile: ./last-seen-service/Dockerfile
+    image: daniloalm/chat-last-seen-service
     environment:
       MONGO_URI: mongodb://root:secret@last-seen-db:27017
-      REFLECTION: "${REFLECTION:-false}"
+      GRPC_PORT: 50051
     depends_on:
       - last-seen-db
 

@@ -65,7 +65,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	user_service_addr := getEnv("USER_SERVICE_ADDR", "user-service:50051")
+	user_service_addr := getEnv("USER_SERVICE_URL", "user-service:50051")
 	conn, err := grpc.NewClient(user_service_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to User Service: %v", err)
