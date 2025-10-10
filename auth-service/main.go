@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -28,7 +29,7 @@ type server struct {
 	mariadbClient *gorm.DB
 }
 
-type User struct {
+type Credentials struct {
 	UserId   string         `gorm:"primaryKey"`
 	Username string         `gorm:"unique;not null;index"`
 	Password string         `gorm:"not null"`
@@ -78,7 +79,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	db.AutoMigrate(&User{}, &RefreshToken{})
+	db.AutoMigrate(&Credentials{}, &RefreshToken{})
 
 	authServer := &server{
 		mariadbClient: db,
@@ -105,8 +106,9 @@ func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCreden
 		return nil, status.Errorf(codes.Internal, "failed to hash password")
 	}
 
-	user := User{
-		Username: req.GetUserId(),
+	user := Credentials{
+		UserId:   req.GetUserId(),
+		Username: req.GetUsername(),
 		Password: hashedPassword,
 	}
 
@@ -117,8 +119,22 @@ func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCreden
 	return &pb.RegisterCredentialsResponse{}, nil
 }
 
+func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredentialsRequest) (*emptypb.Empty, error) {
+	credToDelete := Credentials{UserId: req.GetUserId()}
+	result := s.mariadbClient.WithContext(ctx).Delete(&credToDelete)
+
+	if result.Error != nil {
+		return nil, fmt.Errorf("database error: %v", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, status.Error(codes.NotFound, "user not found")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	var userCredentials User
+	var userCredentials Credentials
 	if err := s.mariadbClient.Where("username = ?", req.GetUsername()).First(&userCredentials).Error; err != nil {
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 	}

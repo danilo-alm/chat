@@ -5,10 +5,12 @@ package auth;
 option go_package = "./pb";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 service AuthService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc RegisterCredentials(RegisterCredentialsRequest) returns (RegisterCredentialsResponse);
+    rpc DeleteCredentials(DeleteCredentialsRequest) returns (google.protobuf.Empty);
 }
 
 message Tokens {
@@ -20,11 +22,16 @@ message Tokens {
 
 message RegisterCredentialsRequest {
     string user_id = 1;
-    string password = 2;
+    string username = 2;
+    string password = 3;
 }
 
 message RegisterCredentialsResponse {
     Tokens tokens = 1;
+}
+
+message DeleteCredentialsRequest {
+    string user_id = 1;
 }
 
 message LoginRequest {

@@ -8,10 +8,10 @@ import (
 	"os"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -92,6 +92,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 
 		_, err := s.authClient.RegisterCredentials(ctx, &authpb.RegisterCredentialsRequest{
 			UserId:   user.Id,
+			Username: user.Username,
 			Password: req.GetPassword(),
 		})
 		if err != nil {
@@ -110,21 +111,16 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 }
 
 func (s *server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
-	var user User
-	if err := s.mariadbClient.WithContext(ctx).First(&user, "id = ?", req.GetId()).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("user not found")
-		}
-		return nil, fmt.Errorf("database error: %v", err)
-	}
-	return &pb.GetUserResponse{
-		User: mapUserToPbUser(user),
-	}, nil
+	return getUser(ctx, s.mariadbClient, "id = ?", req.GetId())
 }
 
 func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
+	return getUser(ctx, s.mariadbClient, "username = ?", req.GetUsername())
+}
+
+func getUser(ctx context.Context, mariadbClient *gorm.DB, conds ...interface{}) (*pb.GetUserResponse, error) {
 	var user User
-	if err := s.mariadbClient.WithContext(ctx).First(&user, "username = ?", req.GetUsername()).Error; err != nil {
+	if err := mariadbClient.WithContext(ctx).First(&user, conds...).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
 		}
@@ -135,19 +131,31 @@ func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernam
 	}, nil
 }
 
-func getUser(ctx context.Context, c *mongo.Client, filter any) (*pb.GetUserResponse, error) {
-	// ...removed: now handled in GetUserById and GetUserByUsername...
-	return nil, fmt.Errorf("not implemented")
-}
+func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*emptypb.Empty, error) {
+	err := s.mariadbClient.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := s.mariadbClient.WithContext(ctx).Delete(&User{}, "id = ?", req.GetId())
+		if result.Error != nil {
+			return fmt.Errorf("database error: %w", result.Error)
+		}
+		if result.RowsAffected == 0 {
+			return fmt.Errorf("user not found")
+		}
 
-func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
-	result := s.mariadbClient.WithContext(ctx).Delete(&User{}, "id = ?", req.GetId())
-	if result.Error != nil {
-		return nil, fmt.Errorf("database error: %v", result.Error)
+		_, err := s.authClient.DeleteCredentials(ctx, &authpb.DeleteCredentialsRequest{
+			UserId: req.GetId(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete credentials: %w", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
-	return &pb.DeleteUserResponse{
-		Success: result.RowsAffected == 1,
-	}, nil
+
+	return &emptypb.Empty{}, nil
 }
 
 func mapUserToPbUser(user User) *pb.User {

@@ -4,12 +4,13 @@ package user;
 
 option go_package = "./pb";
 
+import "google/protobuf/empty.proto";
 
 service UserService {
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
     rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
     rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserResponse);
-    rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
 }
 
 message User {
@@ -42,8 +43,4 @@ message GetUserResponse {
 
 message DeleteUserRequest {
     string id = 1;
-}
-
-message DeleteUserResponse {
-    bool success = 1;
 }
