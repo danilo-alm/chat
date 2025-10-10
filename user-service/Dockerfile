@@ -20,6 +20,12 @@ RUN mkdir -p pb && \
 		--go-grpc_out=./pb --go-grpc_opt=paths=source_relative \
 	    user.proto
 
+RUN mkdir -p auth-pb && \
+	protoc -I /usr/include -I protos/auth \ 
+        --go_out=./auth-pb --go_opt=paths=source_relative \
+		--go-grpc_out=./auth-pb --go-grpc_opt=paths=source_relative \
+	    auth.proto
+
 COPY user-service/main.go ./main.go
 
 RUN go build -ldflags="-s -w" -o myapp main.go

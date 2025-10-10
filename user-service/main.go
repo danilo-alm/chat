@@ -7,14 +7,17 @@ import (
 	"net"
 	"os"
 	"time"
-	"user-service/pb"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
+
+	authpb "user-service/auth-pb"
+	pb "user-service/pb"
 )
 
 type User struct {
@@ -25,6 +28,7 @@ type User struct {
 
 type server struct {
 	pb.UnimplementedUserServiceServer
+	authClient  authpb.AuthServiceClient
 	mongoClient *mongo.Client
 }
 
@@ -38,8 +42,15 @@ func main() {
 	var err error
 	var client *mongo.Client
 
-	mongo_uri := getEnv("MONGO_URI", "mongodb://root:example@mongo:27017")
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongo_uri))
+	authServiceUrl := getEnv("AUTH_SERVICE_URL", "auth-service:50051")
+	conn, err := grpc.NewClient(authServiceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("Failed to connect to Auth Service: %v", err)
+	}
+	defer conn.Close()
+
+	mongoUri := getEnv("MONGO_URI", "mongodb://root:example@mongo:27017")
+	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoUri))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,17 +80,17 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	s := grpc.NewServer()
-
 	userServer := &server{
+		authClient:  authpb.NewAuthServiceClient(conn),
 		mongoClient: client,
 	}
 
+	s := grpc.NewServer()
 	pb.RegisterUserServiceServer(s, userServer)
 
-	enable_reflection := getEnv("REFLECTION", "false")
-	log.Println("Reflection enabled:", enable_reflection)
-	if enable_reflection == "true" {
+	enableReflection := getEnv("REFLECTION", "false")
+	log.Println("Reflection enabled:", enableReflection)
+	if enableReflection == "true" {
 		reflection.Register(s)
 	}
 
@@ -90,6 +101,12 @@ func main() {
 }
 
 func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
+	session, err := s.mongoClient.StartSession()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start mongo session: %w", err)
+	}
+	defer session.EndSession(ctx)
+
 	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
 
 	userInsert := User{
@@ -97,15 +114,33 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 		Name:     req.GetName(),
 		Username: req.GetUsername(),
 	}
-	result, err := collection.InsertOne(ctx, userInsert)
-	if err != nil {
-		return nil, err
+
+	var insertedId string
+
+	txnFunc := func(sessCtx mongo.SessionContext) (any, error) {
+		result, err := collection.InsertOne(sessCtx, userInsert)
+		if err != nil {
+			return nil, err
+		}
+		insertedId = result.InsertedID.(string)
+
+		_, err = s.authClient.RegisterCredentials(sessCtx, &authpb.RegisterCredentialsRequest{
+			UserId:   insertedId,
+			Password: req.GetPassword(),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, nil
 	}
 
-	user := mapUserToPbUser(userInsert)
-	user.Id = result.InsertedID.(string)
+	_, err = session.WithTransaction(ctx, txnFunc)
+	if err != nil {
+		return nil, fmt.Errorf("transaction failed to commit or was aborted: %w", err)
+	}
 
-	return &pb.CreateUserResponse{Id: user.GetId()}, nil
+	return &pb.CreateUserResponse{Id: insertedId}, nil
 }
 
 func (s *server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
