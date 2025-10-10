@@ -15,18 +15,29 @@ services:
   user-service:
     image: daniloalm/chat-user-service
     environment:
-      MONGO_URI: mongodb://root:secret@user-db:27017
+      MARIADB_URI: user:secret@tcp(user-db:3306)/userdb
       GRPC_PORT: 50051
     depends_on:
-      - user-db
+      user-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
 
   user-db:
-    image: mongo:8.0
+    image: mariadb:lts
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: secret
+      - MARIADB_USER=user
+      - MARIADB_PASSWORD=secret
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_DATABASE=userdb
     volumes:
-      - user_data:/data/db
+      - user_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 3s
+      interval: 3s
+      timeout: 5s
+      retries: 3
 
   auth-service:
     image: daniloalm/chat-auth-service
@@ -39,8 +50,6 @@ services:
     depends_on:
       auth-db:
         condition: service_healthy
-      user-service:
-        condition: service_started
 
   auth-db:
     image: mariadb:lts

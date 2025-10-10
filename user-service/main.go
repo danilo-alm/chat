@@ -6,41 +6,33 @@ import (
 	"log"
 	"net"
 	"os"
-	"time"
 
 	"github.com/google/uuid"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 
 	authpb "user-service/auth-pb"
 	pb "user-service/pb"
 )
 
 type User struct {
-	Id       uuid.UUID `bson:"_id"`
-	Name     string    `bson:"name"`
-	Username string    `bson:"username"`
+	Id       string `gorm:"primaryKey"`
+	Name     string `gorm:"not null"`
+	Username string `gorm:"not null;uniqueIndex"`
 }
 
 type server struct {
 	pb.UnimplementedUserServiceServer
-	authClient  authpb.AuthServiceClient
-	mongoClient *mongo.Client
+	authClient    authpb.AuthServiceClient
+	mariadbClient *gorm.DB
 }
 
-const mongoDatabase = "chatdb"
-const mongoCollection = "user"
-
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	var err error
-	var client *mongo.Client
 
 	authServiceUrl := getEnv("AUTH_SERVICE_URL", "auth-service:50051")
 	conn, err := grpc.NewClient(authServiceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -49,30 +41,14 @@ func main() {
 	}
 	defer conn.Close()
 
-	mongoUri := getEnv("MONGO_URI", "mongodb://root:example@mongo:27017")
-	client, err = mongo.Connect(ctx, options.Client().ApplyURI(mongoUri))
+	db_uri := getEnv("MARIADB_URI", "user:secret@tcp(user-db:3306)/userdb")
+	dsn := fmt.Sprintf("%s?charset=utf8mb4&parseTime=True&loc=Local", db_uri)
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("Trying to connect to MongoDB.")
-	if err := client.Ping(ctx, nil); err != nil {
-		log.Fatal("Failed to connect to MongoDB:", err)
-	}
-	log.Println("Successfully connected to MongoDB!")
-
-	// username field should be unique
-	collection := client.Database(mongoDatabase).Collection(mongoCollection)
-	_, err = collection.Indexes().CreateOne(
-		context.TODO(),
-		mongo.IndexModel{
-			Keys:    bson.D{{Key: "username", Value: 1}},
-			Options: options.Index().SetUnique(true),
-		},
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
+	db.AutoMigrate(&User{})
 
 	port := getEnv("GRPC_PORT", "50051")
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -81,8 +57,8 @@ func main() {
 	}
 
 	userServer := &server{
-		authClient:  authpb.NewAuthServiceClient(conn),
-		mongoClient: client,
+		authClient:    authpb.NewAuthServiceClient(conn),
+		mariadbClient: db,
 	}
 
 	s := grpc.NewServer()
@@ -101,62 +77,42 @@ func main() {
 }
 
 func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
-	session, err := s.mongoClient.StartSession()
-	if err != nil {
-		return nil, fmt.Errorf("failed to start mongo session: %w", err)
-	}
-	defer session.EndSession(ctx)
+	var resp *pb.CreateUserResponse
 
-	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
-
-	userInsert := User{
-		Id:       uuid.New(),
-		Name:     req.GetName(),
-		Username: req.GetUsername(),
-	}
-
-	var insertedId string
-
-	txnFunc := func(sessCtx mongo.SessionContext) (any, error) {
-		result, err := collection.InsertOne(sessCtx, userInsert)
-		if err != nil {
-			return nil, err
+	err := s.mariadbClient.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		user := User{
+			Id:       uuid.New().String(),
+			Name:     req.GetName(),
+			Username: req.GetUsername(),
 		}
-		insertedId = result.InsertedID.(string)
 
-		_, err = s.authClient.RegisterCredentials(sessCtx, &authpb.RegisterCredentialsRequest{
-			UserId:   insertedId,
+		if err := tx.Create(&user).Error; err != nil {
+			return fmt.Errorf("failed to create user: %w", err)
+		}
+
+		_, err := s.authClient.RegisterCredentials(ctx, &authpb.RegisterCredentialsRequest{
+			UserId:   user.Id,
 			Password: req.GetPassword(),
 		})
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("failed to register credentials: %w", err)
 		}
 
-		return nil, nil
-	}
+		resp = &pb.CreateUserResponse{Id: user.Id}
+		return nil
+	})
 
-	_, err = session.WithTransaction(ctx, txnFunc)
 	if err != nil {
-		return nil, fmt.Errorf("transaction failed to commit or was aborted: %w", err)
+		return nil, err
 	}
 
-	return &pb.CreateUserResponse{Id: insertedId}, nil
+	return resp, nil
 }
 
 func (s *server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
-	return getUser(ctx, s.mongoClient, bson.M{"_id": req.GetId()})
-}
-
-func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
-	return getUser(ctx, s.mongoClient, bson.M{"username": req.GetUsername()})
-}
-
-func getUser(ctx context.Context, c *mongo.Client, filter any) (*pb.GetUserResponse, error) {
 	var user User
-	collection := c.Database(mongoDatabase).Collection(mongoCollection)
-	err := collection.FindOne(ctx, filter).Decode(&user)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
+	if err := s.mariadbClient.WithContext(ctx).First(&user, "id = ?", req.GetId()).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("user not found")
 		}
 		return nil, fmt.Errorf("database error: %v", err)
@@ -166,22 +122,37 @@ func getUser(ctx context.Context, c *mongo.Client, filter any) (*pb.GetUserRespo
 	}, nil
 }
 
-func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
-	collection := s.mongoClient.Database(mongoDatabase).Collection(mongoCollection)
-
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": req.GetId()})
-	if err != nil {
+func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
+	var user User
+	if err := s.mariadbClient.WithContext(ctx).First(&user, "username = ?", req.GetUsername()).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("user not found")
+		}
 		return nil, fmt.Errorf("database error: %v", err)
 	}
+	return &pb.GetUserResponse{
+		User: mapUserToPbUser(user),
+	}, nil
+}
 
+func getUser(ctx context.Context, c *mongo.Client, filter any) (*pb.GetUserResponse, error) {
+	// ...removed: now handled in GetUserById and GetUserByUsername...
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+	result := s.mariadbClient.WithContext(ctx).Delete(&User{}, "id = ?", req.GetId())
+	if result.Error != nil {
+		return nil, fmt.Errorf("database error: %v", result.Error)
+	}
 	return &pb.DeleteUserResponse{
-		Success: result.DeletedCount == 1,
+		Success: result.RowsAffected == 1,
 	}, nil
 }
 
 func mapUserToPbUser(user User) *pb.User {
 	return &pb.User{
-		Id:       user.Id.String(),
+		Id:       user.Id,
 		Username: user.Username,
 		Name:     user.Name,
 	}

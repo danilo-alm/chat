@@ -15,9 +15,9 @@ services:
       REFLECTION: true
 
   user-db:
-    image: mongo:8.0
+    image: mariadb:lts
     volumes:
-      - user_data_dev:/data/db
+      - user_data_dev:/var/lib/mysql
 
   auth-service:
     build:
