@@ -1,5 +1,12 @@
 services:
 
+  # gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: ./gateway/Dockerfile
+  #   environment:
+  #     REFLECTION: true
+
   user-service:
     build:
       context: .

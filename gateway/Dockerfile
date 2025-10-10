@@ -1,13 +1,14 @@
 # Build stage
-FROM node:24.3.0 AS builder
+FROM node:24-alpine AS builder
 
-RUN apt update && apt install -y protobuf-compiler make
+# RUN apt update && apt install -y protobuf-compiler make
+RUN apk add --no-cache protobuf protobuf-dev make
 
 WORKDIR /app
 
 COPY gateway/package.json gateway/yarn.lock ./
 
-RUN yarn install --frozen-lockfile
+RUN yarn install
 
 COPY gateway/Makefile ./
 COPY protos/ ../protos
@@ -19,7 +20,7 @@ RUN yarn build
 RUN yarn install --production --frozen-lockfile --offline
 
 # Production stage
-FROM node:24.3.0 AS production
+FROM node:24-alpine AS production
 
 WORKDIR /app
 

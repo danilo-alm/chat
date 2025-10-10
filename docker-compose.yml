@@ -1,15 +1,16 @@
 services:
   
-  gateway:
-    image: daniloalm/chat-gateway
-    environment:
-      USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
-      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:50051}
-      LAST_SEEN_SERVICE_URL: ${LAST_SEEN_SERVICE_URL:-last-seen-service:50051}
-    depends_on:
-      - user-service
-      - auth-service
-      - last-seen-service
+  # gateway:
+  #   image: daniloalm/chat-gateway
+  #   environment:
+  #     PORT: 50051
+  #     USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
+  #     AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:50051}
+  #     LAST_SEEN_SERVICE_URL: ${LAST_SEEN_SERVICE_URL:-last-seen-service:50051}
+  #   depends_on:
+  #     - user-service
+  #     - auth-service
+  #     - last-seen-service
 
   user-service:
     image: daniloalm/chat-user-service

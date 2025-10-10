@@ -31,13 +31,13 @@ type server struct {
 }
 
 type User struct {
-	Id       string         `gorm:"primaryKey"`
+	Username string         `gorm:"primaryKey"`
 	Password string         `gorm:"not null"`
 	Tokens   []RefreshToken `gorm:"foreignKey:UserId;references:Id"`
 }
 
 type RefreshToken struct {
-	Id        uint      `gorm:"primaryKey"`
+	Id        string    `gorm:"primaryKey"`
 	UserId    string    `gorm:"not null;index"`
 	Token     string    `gorm:"not null;uniqueIndex;size:512"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
@@ -192,7 +192,6 @@ func issueToken(userId string, TTL time.Duration, secret []byte) (string, time.T
 	exp := now.Add(TTL)
 	claims := jwt.RegisteredClaims{
 		Subject:   userId,
-		ID:        uuid.NewString(),
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(exp),
 	}
@@ -223,6 +222,13 @@ func checkPasswordHash(password, hash string) bool {
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.Id == "" {
 		u.Id = uuid.New().String()
+	}
+	return
+}
+
+func (r *RefreshToken) BeforeCreate(tx *gorm.DB) (err error) {
+	if r.Id == "" {
+		r.Id = uuid.New().String()
 	}
 	return
 }

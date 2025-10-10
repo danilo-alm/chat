@@ -11,7 +11,7 @@ import { PackageDefinition } from '@grpc/proto-loader';
 import { Server } from '@grpc/grpc-js';
 
 async function bootstrap() {
-  const PORT = process.env.PORT || '5000';
+  const PORT = process.env.PORT || '50051';
 
   const grpcOptions: GrpcOptions = {
     transport: Transport.GRPC,
@@ -23,7 +23,9 @@ async function bootstrap() {
         pkg: PackageDefinition,
         server: Pick<Server, 'addService'>,
       ) => {
-        new ReflectionService(pkg).addToServer(server);
+        if (process.env.REFLECTION) {
+          new ReflectionService(pkg).addToServer(server);
+        }
       },
     },
   };
