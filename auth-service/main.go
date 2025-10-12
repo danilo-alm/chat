@@ -103,6 +103,7 @@ func main() {
 func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCredentialsRequest) (*pb.RegisterCredentialsResponse, error) {
 	hashedPassword, err := hashPassword(req.GetPassword())
 	if err != nil {
+		log.Printf("Failed to hash password: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to hash password")
 	}
 
@@ -113,7 +114,11 @@ func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCreden
 	}
 
 	if err := s.mariadbClient.Create(&user).Error; err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to insert auth user: %v", err)
+		log.Printf("Failed to register credentials: %v", err)
+		if err.Error() == gorm.ErrDuplicatedKey.Error() {
+			return nil, status.Error(codes.AlreadyExists, "username already exists")
+		}
+		return nil, status.Error(codes.Internal, "failed to register credentials")
 	}
 
 	return &pb.RegisterCredentialsResponse{}, nil
@@ -124,7 +129,8 @@ func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredential
 	result := s.mariadbClient.WithContext(ctx).Delete(&credToDelete)
 
 	if result.Error != nil {
-		return nil, fmt.Errorf("database error: %v", result.Error)
+		log.Printf("Failed to delete credentials: %v", result.Error)
+		return nil, status.Error(codes.Internal, "failed to delete credentials")
 	}
 	if result.RowsAffected == 0 {
 		return nil, status.Error(codes.NotFound, "user not found")
@@ -134,25 +140,32 @@ func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredential
 }
 
 func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	var userCredentials Credentials
-	if err := s.mariadbClient.Where("username = ?", req.GetUsername()).First(&userCredentials).Error; err != nil {
-		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	credentials := Credentials{Username: req.GetUsername()}
+	if err := s.mariadbClient.Where(&credentials).First(&credentials).Error; err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid username")
 	}
-	if !checkPasswordHash(req.GetPassword(), userCredentials.Password) {
-		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	if !checkPasswordHash(req.GetPassword(), credentials.Password) {
+		return nil, status.Error(codes.Unauthenticated, "invalid password")
 	}
 
-	userId := userCredentials.UserId
+	userId := credentials.UserId
+	genericError := status.Error(codes.Internal, "failed to login")
+
 	access, accessExp, err := signAccessToken(userId)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to sign access token")
+		log.Printf("failed to sign access token: %v", err)
+		return nil, genericError
 	}
+
 	refresh, refreshExp, err := signRefreshToken(userId)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to sign refresh token")
+		log.Printf("failed to sign refresh token: %v", err)
+		return nil, genericError
 	}
+
 	if err := saveRefreshToken(s.mariadbClient, userId, refresh, refreshExp); err != nil {
-		return nil, status.Error(codes.Internal, "failed to persist refresh token")
+		log.Printf("failed to persist tokens: %v", err)
+		return nil, genericError
 	}
 
 	return &pb.LoginResponse{
