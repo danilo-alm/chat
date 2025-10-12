@@ -1,19 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { RegisterUserUseCase } from './usecases/register-user.usecase';
-
-export const USER_INJECTION_TOKEN = 'USER_MICROSERVICE';
+import { UserController } from './user.controller';
 
 @Module({
   imports: [
     ClientsModule.registerAsync([
       {
-        name: USER_INJECTION_TOKEN,
-        imports: [ConfigModule],
+        name: 'USER_SERVICE',
         inject: [ConfigService],
-
         useFactory: (configService: ConfigService) => {
           const serviceUrl = configService.get<string>('services_urls.user');
           const protosDir = configService.get<string>('PROTOS_DIRECTORY');
@@ -23,7 +20,7 @@ export const USER_INJECTION_TOKEN = 'USER_MICROSERVICE';
             options: {
               url: serviceUrl,
               package: 'user',
-              protoPath: join(protosDir!, 'user.proto'),
+              protoPath: join(protosDir!, 'user', 'user.proto'),
             },
           };
         },
@@ -31,6 +28,6 @@ export const USER_INJECTION_TOKEN = 'USER_MICROSERVICE';
     ]),
   ],
   providers: [RegisterUserUseCase],
-  exports: [RegisterUserUseCase],
+  controllers: [UserController],
 })
 export class UserModule {}

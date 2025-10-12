@@ -1,16 +1,18 @@
 services:
   
-  # gateway:
-  #   image: daniloalm/chat-gateway
-  #   environment:
-  #     PORT: 50051
-  #     USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
-  #     AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:50051}
-  #     LAST_SEEN_SERVICE_URL: ${LAST_SEEN_SERVICE_URL:-last-seen-service:50051}
-  #   depends_on:
-  #     - user-service
-  #     - auth-service
-  #     - last-seen-service
+  gateway:
+    image: daniloalm/chat-gateway
+    environment:
+      PORT: 50051
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-user-service:50051}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-auth-service:50051}
+      LAST_SEEN_SERVICE_URL: ${LAST_SEEN_SERVICE_URL:-last-seen-service:50051}
+    ports:
+      - "50051:50051"
+    depends_on:
+      - user-service
+      - auth-service
+      - last-seen-service
 
   user-service:
     image: daniloalm/chat-user-service
@@ -35,7 +37,7 @@ services:
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       start_period: 3s
-      interval: 3s
+      interval: 5s
       timeout: 5s
       retries: 3
 
@@ -63,7 +65,7 @@ services:
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       start_period: 3s
-      interval: 3s
+      interval: 5s
       timeout: 5s
       retries: 3
     
@@ -83,17 +85,6 @@ services:
     volumes:
       - last_seen_data:/data/db
   
-  nginx:
-    image: nginx:1.29-alpine
-    ports:
-      - "8080:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - auth-service
-      - user-service
-      - last-seen-service
-
 volumes:
   last_seen_data:
   auth_data:

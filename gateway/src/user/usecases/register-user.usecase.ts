@@ -1,5 +1,4 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import { USER_INJECTION_TOKEN } from '../user.module';
 import { ClientGrpc } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { CreateUserRequest, UserServiceClient } from 'protos/ts/user/user';
@@ -10,25 +9,22 @@ import {
 
 @Injectable()
 export class RegisterUserUseCase implements OnModuleInit {
-  private userServiceClient: UserServiceClient;
+  private userService: UserServiceClient;
 
-  constructor(
-    @Inject(USER_INJECTION_TOKEN) private readonly client: ClientGrpc,
-  ) {}
+  constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {}
 
   onModuleInit() {
-    this.userServiceClient =
-      this.client.getService<UserServiceClient>('UserService');
+    this.userService = this.client.getService<UserServiceClient>('UserService');
   }
 
-  async execute(request: RegisterUserRequest): Promise<RegisterUserResponse> {
+  async execute(req: RegisterUserRequest): Promise<RegisterUserResponse> {
     const serviceRequest: CreateUserRequest = {
-      name: request.name,
-      username: request.username,
+      name: req.name,
+      username: req.username,
+      password: req.password,
     };
 
-    const observableResponse =
-      this.userServiceClient.createUser(serviceRequest);
+    const observableResponse = this.userService.createUser(serviceRequest);
     const serviceResponse = await firstValueFrom(observableResponse);
 
     return {

@@ -1,0 +1,17 @@
+FROM node:24-alpine
+
+RUN apk add --no-cache protobuf protobuf-dev make
+
+WORKDIR /app
+
+COPY gateway/package.json gateway/yarn.lock ./
+
+RUN yarn install --frozen-lockfile
+
+COPY gateway/Makefile ./
+COPY protos/ ../protos
+RUN make proto
+
+COPY gateway/ .
+
+CMD ["yarn", "start:dev"]
