@@ -12,7 +12,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "last-seen-service/pb"
@@ -70,7 +73,7 @@ func main() {
 	}
 }
 
-func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenRequest) (*pb.UpdateLastSeenResponse, error) {
+func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenRequest) (*emptypb.Empty, error) {
 	collection := s.mongoClient.Database("chatdb").Collection("last_seen")
 
 	_, err := collection.UpdateOne(
@@ -83,12 +86,11 @@ func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenReque
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		log.Printf("failed to update last seen for user %s: %v", req.GetUserId(), err)
+		return nil, status.Errorf(codes.Internal, "failed to update last seen")
 	}
 
-	return &pb.UpdateLastSeenResponse{
-		Success: true,
-	}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (s *server) GetLastSeen(ctx context.Context, req *pb.GetLastSeenRequest) (*pb.GetLastSeenResponse, error) {
@@ -98,13 +100,14 @@ func (s *server) GetLastSeen(ctx context.Context, req *pb.GetLastSeenRequest) (*
 	err := collection.FindOne(ctx, bson.M{"_id": req.GetUserId()}).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			return nil, fmt.Errorf("user not found")
+			log.Printf("user not found: %s", req.GetUserId())
+			return nil, status.Errorf(codes.NotFound, "user not found")
 		}
-		return nil, fmt.Errorf("database error: %v", err)
+		log.Printf("database error: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to retrieve last seen")
 	}
 
 	return &pb.GetLastSeenResponse{
-		UserId:   result.UserID,
 		LastSeen: timestamppb.New(result.LastSeen),
 	}, nil
 }
