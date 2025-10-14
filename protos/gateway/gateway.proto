@@ -4,6 +4,7 @@ package gateway;
 
 service GatewayUserService {
     rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
+    rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
 }
 
 message RegisterUserRequest {
@@ -14,4 +15,15 @@ message RegisterUserRequest {
 
 message RegisterUserResponse {
     string id = 1;
+}
+
+message GetUserProfileRequest {
+    optional string id = 1;
+    optional string username = 2;
+}
+
+message GetUserProfileResponse {
+    string id = 1;
+    string username = 2;
+    string name = 3;
 }

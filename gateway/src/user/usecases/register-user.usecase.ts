@@ -24,14 +24,14 @@ export class RegisterUserUseCase implements OnModuleInit {
       password: req.password,
     };
 
-    try {
-      const observableResponse = this.userService.createUser(serviceRequest);
-      const serviceResponse = await firstValueFrom(observableResponse);
-      return {
-        id: serviceResponse.id,
-      };
-    } catch (error) {
-      throw new RpcException(error as object);
-    }
+    const observableResponse = this.userService.createUser(serviceRequest);
+    const serviceResponse = await firstValueFrom(observableResponse).catch(
+      (error) => {
+        throw new RpcException(error as object);
+      },
+    );
+    return {
+      id: serviceResponse.id,
+    };
   }
 }

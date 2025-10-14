@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { RegisterUserUseCase } from './usecases/register-user.usecase';
 import { UserController } from './user.controller';
+import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { UserController } from './user.controller';
       },
     ]),
   ],
-  providers: [RegisterUserUseCase],
+  providers: [RegisterUserUseCase, GetUserProfileUseCase],
   controllers: [UserController],
 })
 export class UserModule {}

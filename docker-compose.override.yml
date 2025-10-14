@@ -8,6 +8,8 @@ services:
       REFLECTION: true
     volumes:
       - ./gateway/src:/app/src
+      - ./gateway/protos:/app/protos
+      - ./protos:/protos
       - ./gateway/package.json:/app/package.json
       - /app/node_modules
 
