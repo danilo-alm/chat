@@ -1,5 +1,5 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import { ClientGrpc } from '@nestjs/microservices';
+import { ClientGrpc, RpcException } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { CreateUserRequest, UserServiceClient } from 'protos/ts/user/user';
 import {
@@ -24,11 +24,14 @@ export class RegisterUserUseCase implements OnModuleInit {
       password: req.password,
     };
 
-    const observableResponse = this.userService.createUser(serviceRequest);
-    const serviceResponse = await firstValueFrom(observableResponse);
-
-    return {
-      id: serviceResponse.id,
-    };
+    try {
+      const observableResponse = this.userService.createUser(serviceRequest);
+      const serviceResponse = await firstValueFrom(observableResponse);
+      return {
+        id: serviceResponse.id,
+      };
+    } catch (error) {
+      throw new RpcException(error as object);
+    }
   }
 }
