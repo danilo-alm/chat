@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -89,7 +90,7 @@ func (s *server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 		}
 
 		if err := tx.Create(&user).Error; err != nil {
-			if err.Error() == gorm.ErrDuplicatedKey.Error() {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				log.Printf("username already exists (constraint violation): %v", err)
 				return status.Errorf(codes.AlreadyExists, "user already exists")
 			}
@@ -128,7 +129,7 @@ func (s *server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernam
 
 func getUser(ctx context.Context, mariadbClient *gorm.DB, user User) (*pb.GetUserResponse, error) {
 	if err := mariadbClient.WithContext(ctx).Where(&user).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Printf("user not found: %v", err)
 			return nil, status.Errorf(codes.NotFound, "user not found")
 		}

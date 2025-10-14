@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -115,7 +116,7 @@ func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCreden
 
 	if err := s.mariadbClient.Create(&user).Error; err != nil {
 		log.Printf("Failed to register credentials: %v", err)
-		if err.Error() == gorm.ErrDuplicatedKey.Error() {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return nil, status.Error(codes.AlreadyExists, "username already exists")
 		}
 		return nil, status.Error(codes.Internal, "failed to register credentials")

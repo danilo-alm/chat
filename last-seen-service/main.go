@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -99,7 +100,7 @@ func (s *server) GetLastSeen(ctx context.Context, req *pb.GetLastSeenRequest) (*
 	var result UserLastSeen
 	err := collection.FindOne(ctx, bson.M{"_id": req.GetUserId()}).Decode(&result)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, mongo.ErrNoDocuments) {
 			log.Printf("user not found: %s", req.GetUserId())
 			return nil, status.Errorf(codes.NotFound, "user not found")
 		}
