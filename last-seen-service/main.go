@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "last-seen-service/pb"
@@ -74,7 +73,7 @@ func main() {
 	}
 }
 
-func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenRequest) (*emptypb.Empty, error) {
+func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenRequest) (*pb.UpdateLastSeenResponse, error) {
 	collection := s.mongoClient.Database("chatdb").Collection("last_seen")
 
 	_, err := collection.UpdateOne(
@@ -91,7 +90,7 @@ func (s *server) UpdateLastSeen(ctx context.Context, req *pb.UpdateLastSeenReque
 		return nil, status.Errorf(codes.Internal, "failed to update last seen")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &pb.UpdateLastSeenResponse{}, nil
 }
 
 func (s *server) GetLastSeen(ctx context.Context, req *pb.GetLastSeenRequest) (*pb.GetLastSeenResponse, error) {

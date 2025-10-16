@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -141,7 +140,7 @@ func getUser(ctx context.Context, mariadbClient *gorm.DB, user User) (*pb.GetUse
 	}, nil
 }
 
-func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*emptypb.Empty, error) {
+func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
 	err := s.mariadbClient.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := s.mariadbClient.WithContext(ctx).Delete(&User{Id: req.GetId()})
 		if result.Error != nil {
@@ -167,7 +166,7 @@ func (s *server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*em
 		return nil, err
 	}
 
-	return &emptypb.Empty{}, nil
+	return &pb.DeleteUserResponse{}, nil
 }
 
 func mapUserToPbUser(user User) *pb.User {

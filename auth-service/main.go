@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -125,7 +124,7 @@ func (s *server) RegisterCredentials(ctx context.Context, req *pb.RegisterCreden
 	return &pb.RegisterCredentialsResponse{}, nil
 }
 
-func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredentialsRequest) (*emptypb.Empty, error) {
+func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredentialsRequest) (*pb.DeleteCredentialsResponse, error) {
 	credToDelete := Credentials{UserId: req.GetUserId()}
 	result := s.mariadbClient.WithContext(ctx).Delete(&credToDelete)
 
@@ -137,7 +136,7 @@ func (s *server) DeleteCredentials(ctx context.Context, req *pb.DeleteCredential
 		return nil, status.Error(codes.NotFound, "user not found")
 	}
 
-	return &emptypb.Empty{}, nil
+	return &pb.DeleteCredentialsResponse{}, nil
 }
 
 func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {

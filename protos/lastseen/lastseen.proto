@@ -5,10 +5,9 @@ package lastseen;
 option go_package = "./pb";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 
 service LastSeenService {
-  rpc UpdateLastSeen(UpdateLastSeenRequest) returns (google.protobuf.Empty);
+  rpc UpdateLastSeen(UpdateLastSeenRequest) returns (UpdateLastSeenResponse);
   rpc GetLastSeen(GetLastSeenRequest) returns (GetLastSeenResponse);
 }
 
@@ -24,3 +23,5 @@ message GetLastSeenRequest {
 message GetLastSeenResponse {
   google.protobuf.Timestamp last_seen = 1;
 }
+
+message UpdateLastSeenResponse {}
