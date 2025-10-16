@@ -23,14 +23,12 @@ export class UserController implements GatewayUserServiceController {
   ) {}
 
   @GrpcMethod(GATEWAY_USER_SERVICE_NAME)
-  async registerUser(
-    request: RegisterUserRequest,
-  ): Promise<RegisterUserResponse> {
+  registerUser(request: RegisterUserRequest): Promise<RegisterUserResponse> {
     return this.registerUserUseCase.execute(request);
   }
 
   @GrpcMethod(GATEWAY_USER_SERVICE_NAME)
-  async getUserProfile(
+  getUserProfile(
     request: GetUserProfileRequest,
   ): Promise<GetUserProfileResponse> {
     return this.getUserProfileUseCase.execute(request);
