@@ -16,9 +16,7 @@ import { firstValueFrom, Observable } from 'rxjs';
 export class GetUserProfileUseCase {
   private userService: UserServiceClient;
 
-  constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {}
-
-  onModuleInit() {
+  constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {
     this.userService = this.client.getService<UserServiceClient>('UserService');
   }
 
