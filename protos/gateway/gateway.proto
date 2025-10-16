@@ -2,9 +2,12 @@ syntax = "proto3";
 
 package gateway;
 
+import "google/protobuf/empty.proto";
+
 service GatewayUserService {
     rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
     rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
 }
 
 message RegisterUserRequest {
@@ -26,4 +29,8 @@ message GetUserProfileResponse {
     string id = 1;
     string username = 2;
     string name = 3;
+}
+
+message DeleteUserRequest {
+    string id = 1;
 }

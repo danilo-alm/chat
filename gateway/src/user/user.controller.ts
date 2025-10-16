@@ -1,6 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import {
+  DeleteUserRequest,
   GATEWAY_USER_SERVICE_NAME,
   GatewayUserServiceController,
   GetUserProfileRequest,
@@ -10,25 +11,31 @@ import {
 } from 'protos/ts/gateway/gateway';
 import { RegisterUserUseCase } from './usecases/register-user.usecase';
 import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
+import { DeleteUserUseCase } from './usecases/delete-user.usecase';
 
 @Controller()
 export class UserController implements GatewayUserServiceController {
   constructor(
     private readonly registerUserUseCase: RegisterUserUseCase,
     private readonly getUserProfileUseCase: GetUserProfileUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
   ) {}
 
-  @GrpcMethod(GATEWAY_USER_SERVICE_NAME, 'RegisterUser')
+  @GrpcMethod(GATEWAY_USER_SERVICE_NAME)
   async registerUser(
     request: RegisterUserRequest,
   ): Promise<RegisterUserResponse> {
     return this.registerUserUseCase.execute(request);
   }
 
-  @GrpcMethod(GATEWAY_USER_SERVICE_NAME, 'GetUserProfile')
+  @GrpcMethod(GATEWAY_USER_SERVICE_NAME)
   async getUserProfile(
     request: GetUserProfileRequest,
   ): Promise<GetUserProfileResponse> {
     return this.getUserProfileUseCase.execute(request);
+  }
+  
+  deleteUser(request: DeleteUserRequest): void {
+    return this.deleteUserUseCase.execute(request);
   }
 }

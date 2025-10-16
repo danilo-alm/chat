@@ -5,6 +5,7 @@ import { join } from 'path';
 import { RegisterUserUseCase } from './usecases/register-user.usecase';
 import { UserController } from './user.controller';
 import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
+import { DeleteUserUseCase } from './usecases/delete-user.usecase';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
       },
     ]),
   ],
-  providers: [RegisterUserUseCase, GetUserProfileUseCase],
+  providers: [RegisterUserUseCase, GetUserProfileUseCase, DeleteUserUseCase],
   controllers: [UserController],
 })
 export class UserModule {}
