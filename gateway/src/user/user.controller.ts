@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import {
   DeleteUserRequest,
+  DeleteUserResponse,
   GATEWAY_USER_SERVICE_NAME,
   GatewayUserServiceController,
   GetUserProfileRequest,
@@ -34,8 +35,9 @@ export class UserController implements GatewayUserServiceController {
   ): Promise<GetUserProfileResponse> {
     return this.getUserProfileUseCase.execute(request);
   }
-  
-  deleteUser(request: DeleteUserRequest): void {
+
+  @GrpcMethod(GATEWAY_USER_SERVICE_NAME)
+  deleteUser(request: DeleteUserRequest): Promise<DeleteUserResponse> {
     return this.deleteUserUseCase.execute(request);
   }
 }

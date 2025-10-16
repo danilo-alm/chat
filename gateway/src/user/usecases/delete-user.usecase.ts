@@ -1,7 +1,11 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientGrpc, RpcException } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
-import { DeleteUserRequest, UserServiceClient } from 'protos/ts/user/user';
+import { UserServiceClient } from 'protos/ts/user/user';
+import {
+  DeleteUserRequest,
+  DeleteUserResponse,
+} from 'protos/ts/gateway/gateway';
 
 @Injectable()
 export class DeleteUserUseCase implements OnModuleInit {
@@ -13,14 +17,12 @@ export class DeleteUserUseCase implements OnModuleInit {
     this.userService = this.client.getService('UserService');
   }
 
-  async execute(req: DeleteUserRequest): Promise<void> {
-    const serviceRequest: DeleteUserRequest = {
-      id: req.id,
-    };
-
-    const observableResponse = this.userService.deleteUser(serviceRequest);
+  async execute({ id }: DeleteUserRequest): Promise<DeleteUserResponse> {
+    const observableResponse = this.userService.deleteUser({ id });
     await firstValueFrom(observableResponse).catch((error) => {
       throw new RpcException(error as object);
     });
+
+    return {};
   }
 }
