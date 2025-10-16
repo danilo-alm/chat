@@ -4,57 +4,53 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { GetUserResponse, UserServiceClient } from 'protos/ts/user/user';
+import { GetUserResponse, UserServiceClientImpl } from 'protos/ts/user/user';
 import { ClientGrpc, RpcException } from '@nestjs/microservices';
 import {
   GetUserProfileRequest,
   GetUserProfileResponse,
 } from 'protos/ts/gateway/gateway';
-import { firstValueFrom, Observable } from 'rxjs';
 
 @Injectable()
 export class GetUserProfileUseCase {
-  private userService: UserServiceClient;
+  private userService: UserServiceClientImpl;
 
   constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {}
 
   onModuleInit() {
-    this.userService = this.client.getService<UserServiceClient>('UserService');
+    this.userService =
+      this.client.getService<UserServiceClientImpl>('UserService');
   }
 
   async execute({
     id,
     username,
   }: GetUserProfileRequest): Promise<GetUserProfileResponse> {
-    let observableResponse: Observable<GetUserResponse>;
+    console.log('GetUserProfileUseCase.execute called with:', { id, username });
+    let userProfilePromise: Promise<GetUserResponse>;
 
     if (id) {
-      observableResponse = this.userService.getUserById({ id });
+      userProfilePromise = this.userService.GetUserById({ id });
     } else if (username) {
-      observableResponse = this.userService.getUserByUsername({ username });
+      userProfilePromise = this.userService.GetUserByUsername({ username });
     } else {
       throw new RpcException(
         new BadRequestException('Id or username is required'),
       );
     }
 
-    const serviceResponse = await firstValueFrom(observableResponse).catch(
-      (error) => {
-        throw new RpcException(error as object);
-      },
-    );
-
-    const user = serviceResponse.user;
-    if (!user) {
+    const userProfile = (await userProfilePromise).user;
+    console.log('User profile retrieved:', userProfile);
+    if (!userProfile) {
       throw new RpcException(
-        new InternalServerErrorException('Something went wrong'),
+        new InternalServerErrorException('Could not retrieve user profile'),
       );
     }
 
     return {
-      id: user.id,
-      name: user.name,
-      username: user.username,
+      id: userProfile.id,
+      name: userProfile.name,
+      username: userProfile.username,
     };
   }
 }

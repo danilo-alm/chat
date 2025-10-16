@@ -1,20 +1,18 @@
-import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import { ClientGrpc, RpcException } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
-import { CreateUserRequest, UserServiceClient } from 'protos/ts/user/user';
+import { Inject, Injectable } from '@nestjs/common';
+import { ClientGrpc } from '@nestjs/microservices';
+import { CreateUserRequest, UserService } from 'protos/ts/user/user';
 import {
   RegisterUserRequest,
   RegisterUserResponse,
 } from 'protos/ts/gateway/gateway';
+import { lastValueFrom } from 'rxjs';
 
 @Injectable()
-export class RegisterUserUseCase implements OnModuleInit {
-  private userService: UserServiceClient;
+export class RegisterUserUseCase {
+  private userService: UserService;
 
-  constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {}
-
-  onModuleInit() {
-    this.userService = this.client.getService<UserServiceClient>('UserService');
+  constructor(@Inject('USER_SERVICE') private readonly client: ClientGrpc) {
+    this.userService = this.client.getService('UserService');
   }
 
   async execute(req: RegisterUserRequest): Promise<RegisterUserResponse> {
@@ -23,15 +21,9 @@ export class RegisterUserUseCase implements OnModuleInit {
       username: req.username,
       password: req.password,
     };
-
-    const observableResponse = this.userService.createUser(serviceRequest);
-    const serviceResponse = await firstValueFrom(observableResponse).catch(
-      (error) => {
-        throw new RpcException(error as object);
-      },
+    const createdUser = await lastValueFrom(
+      this.userService.CreateUser(serviceRequest),
     );
-    return {
-      id: serviceResponse.id,
-    };
+    return { id: createdUser.id };
   }
 }

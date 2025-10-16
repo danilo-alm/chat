@@ -3,8 +3,9 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { RegisterUserUseCase } from './usecases/register-user.usecase';
-import { UserController } from './user.controller';
+import { GatewayUserServiceImpl } from './user.service';
 import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
+import { DeleteUserUseCase } from './usecases/delete-user.usecase';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { GetUserProfileUseCase } from './usecases/get-user-profile.usecase';
       },
     ]),
   ],
-  providers: [RegisterUserUseCase, GetUserProfileUseCase],
-  controllers: [UserController],
+  providers: [RegisterUserUseCase, GetUserProfileUseCase, DeleteUserUseCase],
+  controllers: [GatewayUserServiceImpl],
 })
 export class UserModule {}
