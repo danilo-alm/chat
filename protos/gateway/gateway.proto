@@ -2,10 +2,16 @@ syntax = "proto3";
 
 package gateway;
 
+import "google/protobuf/timestamp.proto";
+
 service GatewayUserService {
     rpc RegisterUser(RegisterUserRequest) returns (RegisterUserResponse);
     rpc GetUserProfile(GetUserProfileRequest) returns (GetUserProfileResponse);
     rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+}
+
+service GatewayAuthService {
+    rpc Login(LoginRequest) returns (LoginResponse);
 }
 
 message RegisterUserRequest {
@@ -34,3 +40,15 @@ message DeleteUserRequest {
 }
 
 message DeleteUserResponse {}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2; 
+}
+
+message LoginResponse {
+    string access_token = 1;
+    string refresh_token = 2;
+    google.protobuf.Timestamp access_token_expires_at = 3;
+    google.protobuf.Timestamp refresh_token_expires_at = 4;
+}
