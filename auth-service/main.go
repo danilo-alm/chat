@@ -148,24 +148,9 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, status.Error(codes.Unauthenticated, "invalid password")
 	}
 
-	userId := credentials.UserId
-	genericError := status.Error(codes.Internal, "failed to login")
-
-	access, accessExp, err := signAccessToken(userId)
+	access, accessExp, refresh, refreshExp, err := generateTokens(credentials.UserId)
 	if err != nil {
-		log.Printf("failed to sign access token: %v", err)
-		return nil, genericError
-	}
-
-	refresh, refreshExp, err := signRefreshToken(userId)
-	if err != nil {
-		log.Printf("failed to sign refresh token: %v", err)
-		return nil, genericError
-	}
-
-	if err := saveRefreshToken(s.mariadbClient, userId, refresh, refreshExp); err != nil {
-		log.Printf("failed to persist tokens: %v", err)
-		return nil, genericError
+		return nil, err
 	}
 
 	return &pb.LoginResponse{
@@ -176,6 +161,70 @@ func (s *server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 			RefreshTokenExpiresAt: timestamppb.New(refreshExp),
 		},
 	}, nil
+}
+
+func (s *server) RotateRefreshToken(ctx context.Context, req *pb.RotateRefreshTokenRequest) (*pb.RotateRefreshTokenResponse, error) {
+	refreshToken := RefreshToken{Token: req.GetRefreshToken()}
+	if err := s.mariadbClient.Where(&refreshToken).First(&refreshToken).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		}
+		log.Printf("database error: %v", err)
+		return nil, status.Error(codes.Internal, "could not verify refresh token")
+	}
+
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, status.Error(codes.Unauthenticated, "refresh token expired")
+	}
+
+	userId := refreshToken.UserId
+	access, accessExp, newRefresh, newRefreshExp, err := generateTokens(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Invalidate old refresh token and save new one
+	err = s.mariadbClient.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&RefreshToken{Token: req.GetRefreshToken()}).Error; err != nil {
+			log.Printf("failed to delete old refresh token: %v", err)
+			return status.Error(codes.Internal, "failed to rotate refresh token")
+		}
+		if err := saveRefreshToken(tx, userId, newRefresh, newRefreshExp); err != nil {
+			log.Printf("failed to save new refresh token: %v", err)
+			return status.Error(codes.Internal, "failed to rotate refresh token")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.RotateRefreshTokenResponse{
+		Tokens: &pb.Tokens{
+			AccessToken:           access,
+			RefreshToken:          newRefresh,
+			AccessTokenExpiresAt:  timestamppb.New(accessExp),
+			RefreshTokenExpiresAt: timestamppb.New(newRefreshExp),
+		},
+	}, nil
+}
+
+func generateTokens(userId string) (access string, accessExp time.Time, refresh string, refreshExp time.Time, err error) {
+	genericError := status.Error(codes.Internal, "failed to login")
+
+	access, accessExp, err = signAccessToken(userId)
+	if err != nil {
+		log.Printf("failed to sign refresh token: %v", err)
+		return "", time.Time{}, "", time.Time{}, genericError
+	}
+
+	refresh, refreshExp, err = signRefreshToken(userId)
+	if err != nil {
+		log.Printf("failed to sign refresh token: %v", err)
+		return "", time.Time{}, "", time.Time{}, genericError
+	}
+
+	return access, accessExp, refresh, refreshExp, nil
 }
 
 func signAccessToken(userId string) (string, time.Time, error) {
