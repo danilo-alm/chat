@@ -9,6 +9,7 @@ service UserService {
     rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
     rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserResponse);
     rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+    rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
 }
 
 message User {
@@ -44,3 +45,10 @@ message DeleteUserRequest {
 }
 
 message DeleteUserResponse {}
+
+message AssignRoleRequest {
+    string user_id = 1;
+    string role = 2;
+}
+
+message AssignRoleResponse {}

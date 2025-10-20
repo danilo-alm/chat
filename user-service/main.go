@@ -25,6 +25,19 @@ type User struct {
 	Id       string `gorm:"primaryKey"`
 	Name     string `gorm:"not null"`
 	Username string `gorm:"not null;uniqueIndex"`
+	Roles    []Role `gorm:"many2many:user_roles;"`
+}
+
+type Role struct {
+	Id   string `gorm:"primaryKey"`
+	Name string `gorm:"uniqueIndex;not null"`
+}
+
+type UserRole struct {
+	UserID string `gorm:"primaryKey"`
+	RoleID string `gorm:"primaryKey"`
+	User   User   `gorm:"foreignKey:UserId;references:Id"`
+	Role   Role   `gorm:"foreignKey:RoleId;references:Id"`
 }
 
 type server struct {
