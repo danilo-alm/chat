@@ -11,8 +11,8 @@ export class LoginUseCase {
     this.authService = this.client.getService('AuthService');
   }
 
-  async execute({ username, password }: LoginRequest): Promise<LoginResponse> {
-    const observableResponse = this.authService.login({ username, password });
+  async execute(req: LoginRequest): Promise<LoginResponse> {
+    const observableResponse = this.authService.login(req);
     const response = await firstValueFrom(observableResponse).catch((error) => {
       throw new RpcException(error as object);
     });

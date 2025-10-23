@@ -15,12 +15,11 @@ export class DeleteUserUseCase {
     this.userService = this.client.getService('UserService');
   }
 
-  async execute({ id }: DeleteUserRequest): Promise<DeleteUserResponse> {
-    const observableResponse = this.userService.deleteUser({ id });
+  async execute(req: DeleteUserRequest): Promise<DeleteUserResponse> {
+    const observableResponse = this.userService.deleteUser(req);
     await firstValueFrom(observableResponse).catch((error) => {
       throw new RpcException(error as object);
     });
-
     return {};
   }
 }

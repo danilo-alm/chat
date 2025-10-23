@@ -19,13 +19,10 @@ export class RotateRefreshTokensUseCase {
     this.authService = this.client.getService('AuthService');
   }
 
-  async execute({
-    refreshToken,
-  }: RotateRefreshTokenRequest): Promise<RotateRefreshTokenResponse> {
-    const observableResponse = this.authService.rotateRefreshToken({
-      refreshToken,
-    });
-
+  async execute(
+    req: RotateRefreshTokenRequest,
+  ): Promise<RotateRefreshTokenResponse> {
+    const observableResponse = this.authService.rotateRefreshToken(req);
     const response = await firstValueFrom(observableResponse).catch((error) => {
       throw new RpcException(error as object);
     });
