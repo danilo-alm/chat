@@ -1,18 +1,31 @@
-import { Inject, InternalServerErrorException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ClientGrpc, RpcException } from '@nestjs/microservices';
-import { AuthServiceClient } from 'protos/ts/auth/auth';
-import { LoginRequest, LoginResponse } from 'protos/ts/gateway/gateway';
+import {
+  AuthServiceClient,
+  RotateRefreshTokenRequest,
+  RotateRefreshTokenResponse,
+} from 'protos/ts/auth/auth';
 import { firstValueFrom } from 'rxjs';
 
-export class LoginUseCase {
+@Injectable()
+export class RotateRefreshTokensUseCase {
   private authService: AuthServiceClient;
 
   constructor(@Inject('AUTH_SERVICE') private readonly client: ClientGrpc) {
     this.authService = this.client.getService('AuthService');
   }
 
-  async execute({ username, password }: LoginRequest): Promise<LoginResponse> {
-    const observableResponse = this.authService.login({ username, password });
+  async execute({
+    refreshToken,
+  }: RotateRefreshTokenRequest): Promise<RotateRefreshTokenResponse> {
+    const observableResponse = this.authService.rotateRefreshToken({
+      refreshToken,
+    });
+
     const response = await firstValueFrom(observableResponse).catch((error) => {
       throw new RpcException(error as object);
     });
@@ -20,7 +33,7 @@ export class LoginUseCase {
     const tokens = response.tokens;
     if (!tokens) {
       throw new RpcException(
-        new InternalServerErrorException('Could not login'),
+        new InternalServerErrorException('Could not rotate tokens'),
       );
     }
 

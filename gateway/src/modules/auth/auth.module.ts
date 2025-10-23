@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { AuthController } from './auth.controller';
 import { LoginUseCase } from './usecases/login.usecase';
+import { RotateRefreshTokensUseCase } from './usecases/rotate-refresh-tokens';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { LoginUseCase } from './usecases/login.usecase';
       },
     ]),
   ],
-  providers: [LoginUseCase],
+  providers: [LoginUseCase, RotateRefreshTokensUseCase],
   controllers: [AuthController],
 })
 export class AuthModule {}

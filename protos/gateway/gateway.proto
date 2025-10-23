@@ -12,6 +12,7 @@ service GatewayUserService {
 
 service GatewayAuthService {
     rpc Login(LoginRequest) returns (LoginResponse);
+    rpc RotateRefreshToken(RotateRefreshTokenRequest) returns (RotateRefreshTokenResponse);
 }
 
 message RegisterUserRequest {
@@ -46,9 +47,21 @@ message LoginRequest {
     string password = 2; 
 }
 
-message LoginResponse {
+message Tokens {
     string access_token = 1;
     string refresh_token = 2;
     google.protobuf.Timestamp access_token_expires_at = 3;
     google.protobuf.Timestamp refresh_token_expires_at = 4;
+}
+
+message LoginResponse {
+    Tokens tokens = 1;
+}
+
+message RotateRefreshTokenRequest {
+    string refresh_token = 1;
+}
+
+message RotateRefreshTokenResponse {
+    Tokens tokens = 1;
 }
