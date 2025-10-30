@@ -67,13 +67,14 @@ func main() {
 	_, err = userService.RegisterUser(context.Background(), &dto.RegisterUserDto{
 		Name:     adminUser.Name,
 		Username: adminUser.Username,
+		Password: adminPassword,
 	})
 	if err != nil {
 		log.Fatalf("Failed to seed admin user: %v", err)
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterUserServiceServer(s, userServer)
+	pb.RegisterUserServiceServer(s, server)
 
 	enableReflection := utils.GetEnv("REFLECTION", "false")
 	log.Println("Reflection enabled:", enableReflection)
