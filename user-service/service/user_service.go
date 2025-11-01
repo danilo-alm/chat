@@ -55,13 +55,13 @@ func (s *userService) RegisterUser(ctx context.Context, data *dto.RegisterUserDt
 		userId, txErr = txRepo.CreateUser(ctx, &createUserDto)
 		if txErr != nil {
 			log.Printf("failed to create user: %v", txErr)
-			return status.Errorf(codes.Internal, "Failed to create user.")
+			return status.Errorf(codes.Internal, "failed to create user.")
 		}
 
 		registerCredentialsDto.Id = userId
 		if txErr = registerCredentials(ctx, s.authClient, registerCredentialsDto); txErr != nil {
 			log.Printf("failed to register credentials: %v", txErr)
-			return status.Errorf(codes.Internal, "Failed to register credentials.")
+			return status.Errorf(codes.Internal, "failed to register credentials.")
 		}
 
 		return nil
@@ -99,27 +99,18 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string) (*
 }
 
 func (s *userService) AssignRole(ctx context.Context, userId string, roleName string) error {
-	user, err := s.GetUserById(ctx, userId)
-	if err != nil {
-		return err
-	}
-
 	role, err := s.roleService.GetRoleByName(ctx, roleName)
 	if err != nil {
 		return err
 	}
 
-	newRoleId := role.ID
-	for _, r := range user.Roles {
-		if r.ID == newRoleId {
-			return nil
+	if err = s.repository.AssignRole(ctx, userId, role); err != nil {
+		if errors.Is(err, repository.ErrEntityNotFound) {
+			return status.Error(codes.NotFound, "user not found.")
 		}
+		log.Printf("failed to assign role to user: %v", err)
+		return status.Error(codes.Internal, "failed to assign role to user.")
 	}
-
-	user.Roles = append(user.Roles, *role)
-	_, err = s.repository.UpdateUserById(ctx, userId, &dto.UpdateUserDto{
-		Roles: &user.Roles,
-	})
 
 	return err
 }

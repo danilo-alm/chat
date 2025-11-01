@@ -14,7 +14,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, data *dto.CreateUserDto) (string, error)
 	GetUserById(ctx context.Context, id string) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	UpdateUserById(ctx context.Context, id string, data *dto.UpdateUserDto) (*models.User, error)
+	AssignRole(ctx context.Context, userId string, role *models.Role) error
 	DeleteUserById(ctx context.Context, id string) error
 	InTransaction(ctx context.Context, fn func(txRepo UserRepository) error) error
 }
@@ -56,6 +56,20 @@ func (r *gormUserRepository) GetUserByUsername(ctx context.Context, username str
 		return nil, err
 	}
 	return user, nil
+}
+
+func (r *gormUserRepository) AssignRole(ctx context.Context, userId string, role *models.Role) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		user := &models.User{ID: userId}
+		if err := tx.Preload("Roles").Where(user).First(user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrEntityNotFound
+			}
+			return err
+		}
+
+		return tx.Model(user).Association("Roles").Append(role)
+	})
 }
 
 func (r *gormUserRepository) UpdateUserById(ctx context.Context, id string, data *dto.UpdateUserDto) (*models.User, error) {
