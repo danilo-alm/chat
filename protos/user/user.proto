@@ -12,10 +12,23 @@ service UserService {
     rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
 }
 
+service RoleService {
+    rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+    rpc CreateRoles(CreateRolesRequest) returns (CreateRolesResponse);
+    rpc GetRoleByName(GetRoleByNameRequest) returns (GetRoleByNameResponse);
+    rpc GetRolesByNames(GetRolesByNamesRequest) returns (GetRolesByNamesResponse);
+    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+}
+
 message User {
     string id = 1;
     string username = 2;
     string name = 3;
+}
+
+message Role {
+    string id = 1;
+    string name = 2;
 }
 
 message CreateUserRequest {
@@ -52,3 +65,41 @@ message AssignRoleRequest {
 }
 
 message AssignRoleResponse {}
+
+message CreateRoleRequest {
+    string name = 1;
+}
+
+message CreateRoleResponse {
+    string id = 1;
+}
+
+message CreateRolesRequest {
+    repeated string names = 1;
+}
+
+message CreateRolesResponse {
+    repeated string ids = 1;
+}
+
+message GetRoleByNameRequest {
+    string name = 1;
+}
+
+message GetRoleByNameResponse {
+    Role role = 1;
+}
+
+message GetRolesByNamesRequest {
+    repeated string names = 1;
+}
+
+message GetRolesByNamesResponse {
+    repeated Role roles = 1;
+}
+
+message DeleteRoleRequest {
+    string name = 1;
+}
+
+message DeleteRoleResponse {}

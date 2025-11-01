@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"user-service/dto"
 	"user-service/models"
 
 	"github.com/google/uuid"
@@ -10,8 +11,8 @@ import (
 )
 
 type RoleRepository interface {
-	CreateRole(ctx context.Context, role *models.Role) error
-	CreateRoles(ctx context.Context, roles []models.Role) error
+	CreateRole(ctx context.Context, data *dto.CreateRoleDto) (*models.Role, error)
+	CreateRoles(ctx context.Context, data []dto.CreateRoleDto) ([]models.Role, error)
 	GetRoleByName(ctx context.Context, name string) (*models.Role, error)
 	GetRolesByNames(ctx context.Context, name []string) ([]models.Role, error)
 	DeleteRoleById(ctx context.Context, id string) error
@@ -25,28 +26,35 @@ func NewGormRoleRepository(db *gorm.DB) *gormRoleRepository {
 	return &gormRoleRepository{db: db}
 }
 
-func (r *gormRoleRepository) CreateRole(ctx context.Context, role *models.Role) error {
-	role.ID = uuid.NewString()
+func (r *gormRoleRepository) CreateRole(ctx context.Context, data *dto.CreateRoleDto) (*models.Role, error) {
+	role := &models.Role{
+		ID:   uuid.NewString(),
+		Name: data.Name,
+	}
 	if err := r.db.WithContext(ctx).Create(role).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return ErrDuplicateKey
+			return nil, ErrDuplicateKey
 		}
-		return err
+		return nil, err
 	}
-	return nil
+	return role, nil
 }
 
-func (r *gormRoleRepository) CreateRoles(ctx context.Context, roles []models.Role) error {
-	for i := range roles {
-		roles[i].ID = uuid.NewString()
+func (r *gormRoleRepository) CreateRoles(ctx context.Context, data []dto.CreateRoleDto) ([]models.Role, error) {
+	roles := make([]models.Role, len(data))
+	for i := range data {
+		roles[i] = models.Role{
+			ID:   uuid.NewString(),
+			Name: data[i].Name,
+		}
 	}
 	if err := r.db.WithContext(ctx).Create(&roles).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return ErrDuplicateKey
+			return nil, ErrDuplicateKey
 		}
-		return err
+		return nil, err
 	}
-	return nil
+	return roles, nil
 }
 
 func (r *gormRoleRepository) GetRoleByName(ctx context.Context, name string) (*models.Role, error) {
