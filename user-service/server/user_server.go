@@ -8,16 +8,16 @@ import (
 	"user-service/service"
 )
 
-type Server struct {
+type UserServer struct {
 	pb.UnimplementedUserServiceServer
 	userService service.UserService
 }
 
-func NewUserServer(userService service.UserService) *Server {
-	return &Server{userService: userService}
+func NewUserServer(userService service.UserService) *UserServer {
+	return &UserServer{userService: userService}
 }
 
-func (s *Server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
+func (s *UserServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
 	data := &dto.RegisterUserDto{
 		Name:     req.GetName(),
 		Username: req.GetUsername(),
@@ -30,7 +30,7 @@ func (s *Server) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb
 	return &pb.CreateUserResponse{Id: userId}, nil
 }
 
-func (s *Server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
+func (s *UserServer) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*pb.GetUserResponse, error) {
 	user, err := s.userService.GetUserById(ctx, req.GetId())
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (s *Server) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest) (*
 	return mapUserToPbUserResponse(user), nil
 }
 
-func (s *Server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
+func (s *UserServer) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
 	user, err := s.userService.GetUserByUsername(ctx, req.GetUsername())
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (s *Server) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernam
 	return mapUserToPbUserResponse(user), nil
 }
 
-func (s *Server) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+func (s *UserServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
 	if err := s.userService.DeleteUserById(ctx, req.GetId()); err != nil {
 		return nil, err
 	}

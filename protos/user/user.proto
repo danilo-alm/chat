@@ -17,7 +17,7 @@ service RoleService {
     rpc CreateRoles(CreateRolesRequest) returns (CreateRolesResponse);
     rpc GetRoleByName(GetRoleByNameRequest) returns (GetRoleByNameResponse);
     rpc GetRolesByNames(GetRolesByNamesRequest) returns (GetRolesByNamesResponse);
-    rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse);
+    rpc DeleteRoleById(DeleteRoleByIdRequest) returns (DeleteRoleResponse);
 }
 
 message User {
@@ -98,8 +98,8 @@ message GetRolesByNamesResponse {
     repeated Role roles = 1;
 }
 
-message DeleteRoleRequest {
-    string name = 1;
+message DeleteRoleByIdRequest {
+    string id = 1;
 }
 
 message DeleteRoleResponse {}

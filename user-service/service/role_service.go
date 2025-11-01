@@ -13,8 +13,8 @@ import (
 )
 
 type RoleService interface {
-	CreateRole(ctx context.Context, role *dto.CreateRoleDto) error
-	CreateRoles(ctx context.Context, roles []dto.CreateRoleDto) error
+	CreateRole(ctx context.Context, role *dto.CreateRoleDto) (*models.Role, error)
+	CreateRoles(ctx context.Context, roles []dto.CreateRoleDto) ([]models.Role, error)
 	GetRoleByName(ctx context.Context, name string) (*models.Role, error)
 	GetRolesByNames(ctx context.Context, names []string) ([]models.Role, error)
 	DeleteRoleById(ctx context.Context, id string) error
