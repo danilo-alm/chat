@@ -1,5 +1,10 @@
 package models
 
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
 type User struct {
 	ID       string `gorm:"primaryKey"`
 	Name     string `gorm:"not null"`
@@ -19,14 +24,18 @@ type UserRole struct {
 	Role   Role
 }
 
-type Identifiable interface {
-	SetID(id string)
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	setIDIfEmpty(&u.ID)
+	return nil
 }
 
-func (u *User) SetID(id string) {
-	u.ID = id
+func (r *Role) BeforeCreate(tx *gorm.DB) (err error) {
+	setIDIfEmpty(&r.ID)
+	return nil
 }
 
-func (u *Role) SetID(id string) {
-	u.ID = id
+func setIDIfEmpty(id *string) {
+	if *id == "" {
+		*id = uuid.NewString()
+	}
 }

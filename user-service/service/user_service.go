@@ -28,11 +28,11 @@ type userService struct {
 	roleService RoleService
 }
 
-func NewUserService(authClient authpb.AuthServiceClient, repository repository.UserRepository, roleService RoleService) *userService {
+func NewUserService(repository repository.UserRepository, roleService RoleService, authClient authpb.AuthServiceClient) *userService {
 	return &userService{
-		authClient:  authClient,
 		repository:  repository,
 		roleService: roleService,
+		authClient:  authClient,
 	}
 }
 
