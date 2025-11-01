@@ -59,33 +59,35 @@ func (r *gormUserRepository) GetUserByUsername(ctx context.Context, username str
 }
 
 func (r *gormUserRepository) UpdateUserById(ctx context.Context, id string, data *dto.UpdateUserDto) (*models.User, error) {
-	user, err := r.GetUserById(ctx, id)
+	var user *models.User
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		user = &models.User{ID: id}
+		if err := tx.Preload("Roles").Where(user).First(user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrEntityNotFound
+			}
+			return err
+		}
+
+		if data.Name != nil {
+			user.Name = *data.Name
+		}
+
+		if err := tx.Save(user).Error; err != nil {
+			return err
+		}
+
+		if data.Roles != nil {
+			if err := tx.Model(user).Association("Roles").Replace(data.Roles); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, err
-	}
-
-	tx := r.db.WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	if data.Name != nil {
-		user.Name = *data.Name
-	}
-
-	if err := tx.Save(user).Error; err != nil {
-		return nil, err
-	}
-
-	if data.Roles != nil {
-		if err := tx.Model(user).Association("Roles").Replace(data.Roles); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
