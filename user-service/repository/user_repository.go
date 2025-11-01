@@ -14,6 +14,7 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, data *dto.CreateUserDto) (string, error)
 	GetUserById(ctx context.Context, id string) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	UpdateUserById(ctx context.Context, id string, data *dto.UpdateUserDto) (*models.User, error)
 	DeleteUserById(ctx context.Context, id string) error
 	InTransaction(ctx context.Context, fn func(txRepo UserRepository) error) error
 }
@@ -57,6 +58,40 @@ func (r *gormUserRepository) GetUserByUsername(ctx context.Context, username str
 	return user, nil
 }
 
+func (r *gormUserRepository) UpdateUserById(ctx context.Context, id string, data *dto.UpdateUserDto) (*models.User, error) {
+	user, err := r.GetUserById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := r.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if data.Name != nil {
+		user.Name = *data.Name
+	}
+
+	if err := tx.Save(user).Error; err != nil {
+		return nil, err
+	}
+
+	if data.Roles != nil {
+		if err := tx.Model(user).Association("Roles").Replace(data.Roles); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 func (r *gormUserRepository) DeleteUserById(ctx context.Context, id string) error {
 	user := &models.User{ID: id}
 	if err := r.deleteUser(ctx, user); err != nil {
@@ -75,6 +110,9 @@ func (r *gormUserRepository) InTransaction(ctx context.Context, fn func(txRepo U
 
 func (r *gormUserRepository) getUser(ctx context.Context, user *models.User) error {
 	if err := r.db.WithContext(ctx).Where(&user).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrEntityNotFound
+		}
 		return err
 	}
 	return nil

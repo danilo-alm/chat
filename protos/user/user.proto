@@ -61,7 +61,7 @@ message DeleteUserResponse {}
 
 message AssignRoleRequest {
     string user_id = 1;
-    string role = 2;
+    string role_name = 2;
 }
 
 message AssignRoleResponse {}

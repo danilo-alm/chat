@@ -13,7 +13,7 @@ type UserServer struct {
 	userService service.UserService
 }
 
-func NewUserServer(userService service.UserService) *UserServer {
+func NewUserServer(userService service.UserService, roleService service.RoleService) *UserServer {
 	return &UserServer{userService: userService}
 }
 
@@ -51,6 +51,13 @@ func (s *UserServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) 
 		return nil, err
 	}
 	return &pb.DeleteUserResponse{}, nil
+}
+
+func (s *UserServer) AssignRole(ctx context.Context, req *pb.AssignRoleRequest) (*pb.AssignRoleResponse, error) {
+	if err := s.userService.AssignRole(ctx, req.GetUserId(), req.GetRoleName()); err != nil {
+		return nil, err
+	}
+	return &pb.AssignRoleResponse{}, nil
 }
 
 func mapUserToPbUserResponse(user *models.User) *pb.GetUserResponse {

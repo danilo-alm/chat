@@ -18,18 +18,21 @@ type UserService interface {
 	RegisterUser(ctx context.Context, data *dto.RegisterUserDto) (string, error)
 	GetUserById(ctx context.Context, id string) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	AssignRole(ctx context.Context, userId string, roleName string) error
 	DeleteUserById(ctx context.Context, id string) error
 }
 
 type userService struct {
-	authClient authpb.AuthServiceClient
-	repository repository.UserRepository
+	authClient  authpb.AuthServiceClient
+	repository  repository.UserRepository
+	roleService RoleService
 }
 
-func NewUserService(authClient authpb.AuthServiceClient, repository repository.UserRepository) *userService {
+func NewUserService(authClient authpb.AuthServiceClient, repository repository.UserRepository, roleService RoleService) *userService {
 	return &userService{
-		authClient: authClient,
-		repository: repository,
+		authClient:  authClient,
+		repository:  repository,
+		roleService: roleService,
 	}
 }
 
@@ -74,7 +77,11 @@ func (s *userService) RegisterUser(ctx context.Context, data *dto.RegisterUserDt
 func (s *userService) GetUserById(ctx context.Context, id string) (*models.User, error) {
 	user, err := s.repository.GetUserById(ctx, id)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, repository.ErrEntityNotFound) {
+			return nil, status.Error(codes.NotFound, "User not found.")
+		}
+		log.Printf("failed to get user by id: %v", err)
+		return nil, status.Error(codes.Internal, "Failed to get user.")
 	}
 	return user, nil
 }
@@ -82,15 +89,48 @@ func (s *userService) GetUserById(ctx context.Context, id string) (*models.User,
 func (s *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	user, err := s.repository.GetUserByUsername(ctx, username)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, repository.ErrEntityNotFound) {
+			return nil, status.Error(codes.NotFound, "User not found.")
+		}
+		log.Printf("failed to get user by username: %v", err)
+		return nil, status.Error(codes.Internal, "Failed to get user.")
 	}
 	return user, nil
 }
 
+func (s *userService) AssignRole(ctx context.Context, userId string, roleName string) error {
+	user, err := s.GetUserById(ctx, userId)
+	if err != nil {
+		return err
+	}
+
+	role, err := s.roleService.GetRoleByName(ctx, roleName)
+	if err != nil {
+		return err
+	}
+
+	newRoleId := role.ID
+	for _, r := range user.Roles {
+		if r.ID == newRoleId {
+			return nil
+		}
+	}
+
+	user.Roles = append(user.Roles, *role)
+	_, err = s.repository.UpdateUserById(ctx, userId, &dto.UpdateUserDto{
+		Roles: &user.Roles,
+	})
+
+	return err
+}
+
 func (s *userService) DeleteUserById(ctx context.Context, id string) error {
 	if err := s.repository.DeleteUserById(ctx, id); err != nil {
+		if errors.Is(err, repository.ErrEntityNotFound) {
+			return status.Error(codes.NotFound, "User not found.")
+		}
 		log.Printf("failed to delete user: %v", err)
-		return err
+		return status.Error(codes.Internal, "Failed to delete user.")
 	}
 	return nil
 }
@@ -103,7 +143,7 @@ func registerCredentials(ctx context.Context, authClient authpb.AuthServiceClien
 	})
 	if err != nil {
 		log.Printf("failed to register credentials: %v", err)
-		return errors.New("failed to register credentials")
+		return status.Error(codes.Internal, "Failed to register credentials.")
 	}
 	return nil
 }

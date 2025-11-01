@@ -1,5 +1,7 @@
 package dto
 
+import "user-service/models"
+
 type RegisterUserDto struct {
 	Name     string
 	Username string
@@ -9,6 +11,11 @@ type RegisterUserDto struct {
 type CreateUserDto struct {
 	Name     string
 	Username string
+}
+
+type UpdateUserDto struct {
+	Name  *string
+	Roles *[]models.Role
 }
 
 type RegisterCredentialsDto struct {

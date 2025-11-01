@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type RoleService interface {
@@ -57,6 +58,9 @@ func (s *roleService) CreateRoles(ctx context.Context, data []dto.CreateRoleDto)
 func (s *roleService) GetRoleByName(ctx context.Context, name string) (*models.Role, error) {
 	role, err := s.repository.GetRoleByName(ctx, name)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, status.Error(codes.NotFound, "role not found.")
+		}
 		log.Printf("failed to get role by name: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to get role by name")
 	}
