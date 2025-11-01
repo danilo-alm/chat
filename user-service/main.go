@@ -48,7 +48,6 @@ func main() {
 		log.Fatalf("gRPC server setup failed: %v", err)
 	}
 
-	// 6. Start Server
 	log.Println("gRPC server started on port", serverPort)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
