@@ -76,26 +76,12 @@ func (s *userService) RegisterUser(ctx context.Context, data *dto.RegisterUserDt
 
 func (s *userService) GetUserById(ctx context.Context, id string) (*models.User, error) {
 	user, err := s.repository.GetUserById(ctx, id)
-	if err != nil {
-		if errors.Is(err, repository.ErrEntityNotFound) {
-			return nil, status.Error(codes.NotFound, "User not found.")
-		}
-		log.Printf("failed to get user by id: %v", err)
-		return nil, status.Error(codes.Internal, "Failed to get user.")
-	}
-	return user, nil
+	return handleFetchedUser(user, err)
 }
 
 func (s *userService) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	user, err := s.repository.GetUserByUsername(ctx, username)
-	if err != nil {
-		if errors.Is(err, repository.ErrEntityNotFound) {
-			return nil, status.Error(codes.NotFound, "User not found.")
-		}
-		log.Printf("failed to get user by username: %v", err)
-		return nil, status.Error(codes.Internal, "Failed to get user.")
-	}
-	return user, nil
+	return handleFetchedUser(user, err)
 }
 
 func (s *userService) AssignRole(ctx context.Context, userId string, roleName string) error {
@@ -147,4 +133,14 @@ func registerCredentials(ctx context.Context, authClient authpb.AuthServiceClien
 		return err
 	}
 	return nil
+}
+
+func handleFetchedUser(user *models.User, err error) (*models.User, error) {
+	if errors.Is(err, repository.ErrEntityNotFound) {
+		return nil, status.Error(codes.NotFound, "User not found.")
+	} else if err != nil {
+		log.Printf("failed to get user: %v", err)
+		return nil, status.Error(codes.Internal, "Failed to get user.")
+	}
+	return user, nil
 }
