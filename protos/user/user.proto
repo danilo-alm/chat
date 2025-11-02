@@ -20,15 +20,16 @@ service RoleService {
     rpc DeleteRoleById(DeleteRoleByIdRequest) returns (DeleteRoleResponse);
 }
 
+message Role {
+    string id = 1;
+    string name = 2;
+}
+
 message User {
     string id = 1;
     string username = 2;
     string name = 3;
-}
-
-message Role {
-    string id = 1;
-    string name = 2;
+    repeated Role roles = 4;
 }
 
 message CreateUserRequest {
@@ -47,6 +48,10 @@ message GetUserByIdRequest {
 
 message GetUserByUsernameRequest {
     string username = 1;
+}
+
+message GetUserRolesResponse {
+    repeated Role roles = 1;
 }
 
 message GetUserResponse {

@@ -65,5 +65,15 @@ func mapUserToPbUserResponse(user *models.User) *pb.GetUserResponse {
 		Id:       user.ID,
 		Name:     user.Name,
 		Username: user.Username,
+		Roles:    mapRolesToPbRoles(user.Roles),
 	}}
+}
+
+func mapRolesToPbRoles(roles []models.Role) []*pb.Role {
+	pbRoles := make([]*pb.Role, 0, len(roles))
+	for _, r := range roles {
+		pbRole := &pb.Role{Id: r.ID, Name: r.Name}
+		pbRoles = append(pbRoles, pbRole)
+	}
+	return pbRoles
 }

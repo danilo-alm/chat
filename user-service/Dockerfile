@@ -26,9 +26,9 @@ RUN mkdir -p auth-pb && \
 		--go-grpc_out=./auth-pb --go-grpc_opt=paths=source_relative \
 	    auth.proto
 
-COPY user-service/main.go ./main.go
+COPY user-service/ .
 
-RUN go build -ldflags="-s -w" -o myapp main.go
+RUN go build -ldflags="-s -w" -o myapp .
 
 # 2. Run stage
 FROM alpine:latest
