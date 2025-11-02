@@ -125,13 +125,11 @@ func (r *gormUserRepository) InTransaction(ctx context.Context, fn func(txRepo U
 }
 
 func (r *gormUserRepository) getUser(ctx context.Context, user *models.User) error {
-	if err := r.db.WithContext(ctx).Where(&user).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrEntityNotFound
-		}
-		return err
+	err := r.db.WithContext(ctx).Preload("Roles").Where(&user).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrEntityNotFound
 	}
-	return nil
+	return err
 }
 
 func (r *gormUserRepository) deleteUser(ctx context.Context, user *models.User) error {
