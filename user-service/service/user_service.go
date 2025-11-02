@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	authpb "user-service/auth-pb"
+	pb "user-service/auth-pb"
 	"user-service/dto"
 	"user-service/models"
 	"user-service/repository"
@@ -116,14 +117,24 @@ func (s *userService) AssignRole(ctx context.Context, userId string, roleName st
 }
 
 func (s *userService) DeleteUserById(ctx context.Context, id string) error {
-	if err := s.repository.DeleteUserById(ctx, id); err != nil {
+	return s.repository.InTransaction(ctx, func(txRepo repository.UserRepository) error {
+		err := txRepo.DeleteUserById(ctx, id)
+
 		if errors.Is(err, repository.ErrEntityNotFound) {
 			return status.Error(codes.NotFound, "User not found.")
+		} else if err != nil {
+			log.Printf("failed to delete user: %v", err)
+			return status.Error(codes.Internal, "Failed to delete user.")
 		}
-		log.Printf("failed to delete user: %v", err)
-		return status.Error(codes.Internal, "Failed to delete user.")
-	}
-	return nil
+
+		pbReq := &pb.DeleteCredentialsRequest{UserId: id}
+		if _, err := s.authClient.DeleteCredentials(ctx, pbReq); err != nil {
+			log.Printf("failed to delete user credentials: %v", err)
+			return status.Error(codes.Internal, "Failed to delete user credentials.")
+		}
+
+		return nil
+	})
 }
 
 func registerCredentials(ctx context.Context, authClient authpb.AuthServiceClient, dto dto.RegisterCredentialsDto) error {
