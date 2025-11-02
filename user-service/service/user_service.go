@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	authpb "user-service/auth-pb"
-	pb "user-service/auth-pb"
 	"user-service/dto"
 	"user-service/models"
 	"user-service/repository"
@@ -127,7 +126,7 @@ func (s *userService) DeleteUserById(ctx context.Context, id string) error {
 			return status.Error(codes.Internal, "Failed to delete user.")
 		}
 
-		pbReq := &pb.DeleteCredentialsRequest{UserId: id}
+		pbReq := &authpb.DeleteCredentialsRequest{UserId: id}
 		if _, err := s.authClient.DeleteCredentials(ctx, pbReq); err != nil {
 			log.Printf("failed to delete user credentials: %v", err)
 			return status.Error(codes.Internal, "Failed to delete user credentials.")
