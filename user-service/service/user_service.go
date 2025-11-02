@@ -134,7 +134,7 @@ func registerCredentials(ctx context.Context, authClient authpb.AuthServiceClien
 	})
 	if err != nil {
 		log.Printf("failed to register credentials: %v", err)
-		return status.Error(codes.Internal, "Failed to register credentials.")
+		return err
 	}
 	return nil
 }
