@@ -8,6 +8,8 @@ import (
 
 	authpb "user-service/auth-pb"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +38,10 @@ func SeedAdminUser(db *gorm.DB, authClient authpb.AuthServiceClient) error {
 			Password: adminPassword,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to register admin user credentials: %w", err)
+			st, ok := status.FromError(err)
+			if ok && st.Code() != codes.AlreadyExists {
+				return fmt.Errorf("failed to register admin user credentials: %w", err)
+			}
 		}
 
 		return nil
