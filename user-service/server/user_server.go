@@ -18,7 +18,7 @@ func NewUserServer(userService service.UserService, roleService service.RoleServ
 }
 
 func (s *UserServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.CreateUserResponse, error) {
-	data := &dto.RegisterUserDto{
+	data := &dto.CreateUserDto{
 		Name:     req.GetName(),
 		Username: req.GetUsername(),
 		Password: req.GetPassword(),
@@ -35,7 +35,7 @@ func (s *UserServer) GetUserById(ctx context.Context, req *pb.GetUserByIdRequest
 	if err != nil {
 		return nil, err
 	}
-	return mapUserToPbUserResponse(user), nil
+	return &pb.GetUserResponse{User: mapUserToPbUser(user)}, nil
 }
 
 func (s *UserServer) GetUserByUsername(ctx context.Context, req *pb.GetUserByUsernameRequest) (*pb.GetUserResponse, error) {
@@ -43,7 +43,18 @@ func (s *UserServer) GetUserByUsername(ctx context.Context, req *pb.GetUserByUse
 	if err != nil {
 		return nil, err
 	}
-	return mapUserToPbUserResponse(user), nil
+	return &pb.GetUserResponse{User: mapUserToPbUser(user)}, nil
+}
+
+func (s *UserServer) GetCredentials(ctx context.Context, req *pb.GetCredentialsRequest) (*pb.GetCredentialsResponse, error) {
+	user, err := s.userService.GetUserByUsername(ctx, req.GetUsername())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetCredentialsResponse{
+		User:           mapUserToPbUser(user),
+		HashedPassword: user.Password,
+	}, nil
 }
 
 func (s *UserServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
@@ -60,13 +71,13 @@ func (s *UserServer) AssignRole(ctx context.Context, req *pb.AssignRoleRequest) 
 	return &pb.AssignRoleResponse{}, nil
 }
 
-func mapUserToPbUserResponse(user *models.User) *pb.GetUserResponse {
-	return &pb.GetUserResponse{User: &pb.User{
+func mapUserToPbUser(user *models.User) *pb.User {
+	return &pb.User{
 		Id:       user.ID,
 		Name:     user.Name,
 		Username: user.Username,
 		Roles:    mapRolesToPbRoles(user.Roles),
-	}}
+	}
 }
 
 func mapRolesToPbRoles(roles []models.Role) []*pb.Role {

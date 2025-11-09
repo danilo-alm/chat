@@ -5,17 +5,17 @@ import (
 	"errors"
 	"log"
 
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	authpb "user-service/auth-pb"
 	"user-service/dto"
 	"user-service/models"
 	"user-service/repository"
 )
 
 type UserService interface {
-	RegisterUser(ctx context.Context, data *dto.RegisterUserDto) (string, error)
+	RegisterUser(ctx context.Context, data *dto.CreateUserDto) (string, error)
 	GetUserById(ctx context.Context, id string) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	AssignRole(ctx context.Context, userId string, roleName string) error
@@ -23,52 +23,36 @@ type UserService interface {
 }
 
 type userService struct {
-	authClient  authpb.AuthServiceClient
 	repository  repository.UserRepository
 	roleService RoleService
 }
 
-func NewUserService(repository repository.UserRepository, roleService RoleService, authClient authpb.AuthServiceClient) *userService {
+func NewUserService(repository repository.UserRepository, roleService RoleService) UserService {
 	return &userService{
 		repository:  repository,
 		roleService: roleService,
-		authClient:  authClient,
 	}
 }
 
-func (s *userService) RegisterUser(ctx context.Context, data *dto.RegisterUserDto) (string, error) {
-	var userId string
+func (s *userService) RegisterUser(ctx context.Context, data *dto.CreateUserDto) (string, error) {
+	genericError := status.Error(codes.Internal, "failed to create user.")
 
-	createUserDto := dto.CreateUserDto{
+	hashedPassword, err := hashPassword(data.Password)
+	if err != nil {
+		log.Printf("error hashing password: %v", err)
+		return "", genericError
+	}
+
+	userId, err := s.repository.CreateUser(ctx, &dto.CreateUserDto{
 		Name:     data.Name,
 		Username: data.Username,
-	}
-
-	registerCredentialsDto := dto.RegisterCredentialsDto{
-		Username: data.Username,
-		Password: data.Password,
-	}
-
-	err := s.repository.InTransaction(ctx, func(txRepo repository.UserRepository) error {
-		var txErr error
-
-		userId, txErr = txRepo.CreateUser(ctx, &createUserDto)
-		if txErr != nil {
-			log.Printf("failed to create user: %v", txErr)
-			return status.Errorf(codes.Internal, "failed to create user.")
-		}
-
-		registerCredentialsDto.Id = userId
-		if txErr = registerCredentials(ctx, s.authClient, registerCredentialsDto); txErr != nil {
-			log.Printf("failed to register credentials: %v", txErr)
-			return status.Errorf(codes.Internal, "failed to register credentials.")
-		}
-
-		return nil
+		Password: hashedPassword,
 	})
-
-	if err != nil {
-		return "", err
+	if errors.Is(err, repository.ErrDuplicateKey) {
+		return "", status.Error(codes.AlreadyExists, "username already exists.")
+	} else if err != nil {
+		log.Printf("failed to create user: %v", err)
+		return "", genericError
 	}
 
 	return userId, nil
@@ -90,10 +74,10 @@ func (s *userService) AssignRole(ctx context.Context, userId string, roleName st
 		return err
 	}
 
-	if err = s.repository.AssignRole(ctx, userId, role); err != nil {
-		if errors.Is(err, repository.ErrEntityNotFound) {
-			return status.Error(codes.NotFound, "user not found.")
-		}
+	err = s.repository.AssignRole(ctx, userId, role)
+	if errors.Is(err, repository.ErrEntityNotFound) {
+		return status.Error(codes.NotFound, "user not found.")
+	} else if err != nil {
 		log.Printf("failed to assign role to user: %v", err)
 		return status.Error(codes.Internal, "failed to assign role to user.")
 	}
@@ -102,36 +86,15 @@ func (s *userService) AssignRole(ctx context.Context, userId string, roleName st
 }
 
 func (s *userService) DeleteUserById(ctx context.Context, id string) error {
-	return s.repository.InTransaction(ctx, func(txRepo repository.UserRepository) error {
-		err := txRepo.DeleteUserById(ctx, id)
+	err := s.repository.DeleteUserById(ctx, id)
 
-		if errors.Is(err, repository.ErrEntityNotFound) {
-			return status.Error(codes.NotFound, "User not found.")
-		} else if err != nil {
-			log.Printf("failed to delete user: %v", err)
-			return status.Error(codes.Internal, "Failed to delete user.")
-		}
-
-		pbReq := &authpb.DeleteCredentialsRequest{UserId: id}
-		if _, err := s.authClient.DeleteCredentials(ctx, pbReq); err != nil {
-			log.Printf("failed to delete user credentials: %v", err)
-			return status.Error(codes.Internal, "Failed to delete user credentials.")
-		}
-
-		return nil
-	})
-}
-
-func registerCredentials(ctx context.Context, authClient authpb.AuthServiceClient, dto dto.RegisterCredentialsDto) error {
-	_, err := authClient.RegisterCredentials(ctx, &authpb.RegisterCredentialsRequest{
-		UserId:   dto.Id,
-		Username: dto.Username,
-		Password: dto.Password,
-	})
-	if err != nil {
-		log.Printf("failed to register credentials: %v", err)
-		return err
+	if errors.Is(err, repository.ErrEntityNotFound) {
+		return status.Error(codes.NotFound, "user not found.")
+	} else if err != nil {
+		log.Printf("failed to delete user: %v", err)
+		return status.Error(codes.Internal, "failed to delete user.")
 	}
+
 	return nil
 }
 
@@ -143,4 +106,9 @@ func handleFetchedUser(user *models.User, err error) (*models.User, error) {
 		return nil, status.Error(codes.Internal, "Failed to get user.")
 	}
 	return user, nil
+}
+
+func hashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hash), err
 }

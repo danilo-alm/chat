@@ -6,6 +6,12 @@ proto:
 		--proto_path=../protos/auth \
 		auth.proto
 
+	mkdir -p user-pb
+	protoc --go_out=./user-pb --go_opt=paths=source_relative \
+		--go-grpc_out=./user-pb --go-grpc_opt=paths=source_relative \
+		--proto_path=../protos/user \
+	user.proto
+
 .PHONY: run
 run:
 	go run main.go

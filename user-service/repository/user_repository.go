@@ -16,7 +16,6 @@ type UserRepository interface {
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
 	AssignRole(ctx context.Context, userId string, role *models.Role) error
 	DeleteUserById(ctx context.Context, id string) error
-	InTransaction(ctx context.Context, fn func(txRepo UserRepository) error) error
 }
 
 type gormUserRepository struct {
@@ -32,6 +31,7 @@ func (r *gormUserRepository) CreateUser(ctx context.Context, data *dto.CreateUse
 		ID:       uuid.NewString(),
 		Name:     data.Name,
 		Username: data.Username,
+		Password: data.Password,
 	}
 	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -114,14 +114,6 @@ func (r *gormUserRepository) DeleteUserById(ctx context.Context, id string) erro
 		return err
 	}
 	return nil
-}
-
-func (r *gormUserRepository) InTransaction(ctx context.Context, fn func(txRepo UserRepository) error) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txRepoImpl := &gormUserRepository{db: tx}
-
-		return fn(txRepoImpl)
-	})
 }
 
 func (r *gormUserRepository) getUser(ctx context.Context, user *models.User) error {

@@ -6,12 +6,10 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	authpb "user-service/auth-pb"
 	"user-service/models"
 	pb "user-service/pb"
 	"user-service/repository"
@@ -26,19 +24,13 @@ func main() {
 		log.Fatalf("Database initialization failed: %v", err)
 	}
 
-	authClient, conn, err := initializeAuthClient()
-	if err != nil {
-		log.Fatalf("Auth client initialization failed: %v", err)
-	}
-	defer conn.Close()
-
 	roleRepository := repository.NewGormRoleRepository(db)
 	roleService := service.NewRoleService(roleRepository)
 
 	userRepository := repository.NewGormUserRepository(db)
-	userService := service.NewUserService(userRepository, roleService, authClient)
+	userService := service.NewUserService(userRepository, roleService)
 
-	if err := SeedAdminUser(db, authClient); err != nil {
+	if err := SeedAdmin(db); err != nil {
 		log.Fatalf("Failed to seed admin user: %v", err)
 	}
 
@@ -71,30 +63,18 @@ func initializeDatabase() (*gorm.DB, error) {
 	return db, nil
 }
 
-func initializeAuthClient() (authpb.AuthServiceClient, *grpc.ClientConn, error) {
-	authServiceUrl := utils.GetEnv("AUTH_SERVICE_URL", "auth-service:50051")
-
-	conn, err := grpc.NewClient(authServiceUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to Auth Service at %s: %w", authServiceUrl, err)
-	}
-
-	authClient := authpb.NewAuthServiceClient(conn)
-	return authClient, conn, nil
-}
-
 func setupGRPCServer(port string, userService service.UserService, roleService service.RoleService) (net.Listener, *grpc.Server, error) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to listen on port %s: %w", port, err)
 	}
 
-	userServerImpl := server.NewUserServer(userService, roleService)
-	roleServerImpl := server.NewRoleServer(roleService)
+	userServer := server.NewUserServer(userService, roleService)
+	roleServer := server.NewRoleServer(roleService)
 
 	s := grpc.NewServer()
-	pb.RegisterUserServiceServer(s, userServerImpl)
-	pb.RegisterRoleServiceServer(s, roleServerImpl)
+	pb.RegisterUserServiceServer(s, userServer)
+	pb.RegisterRoleServiceServer(s, roleServer)
 
 	enableReflection := utils.GetEnv("REFLECTION", "false")
 	log.Println("Reflection enabled:", enableReflection)

@@ -8,6 +8,7 @@ service UserService {
     rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
     rpc GetUserById(GetUserByIdRequest) returns (GetUserResponse);
     rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserResponse);
+    rpc GetCredentials(GetCredentialsRequest) returns (GetCredentialsResponse);
     rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
     rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
 }
@@ -50,12 +51,17 @@ message GetUserByUsernameRequest {
     string username = 1;
 }
 
-message GetUserRolesResponse {
-    repeated Role roles = 1;
-}
-
 message GetUserResponse {
     User user = 1;
+}
+
+message GetCredentialsRequest {
+    string username = 1;
+}
+
+message GetCredentialsResponse {
+    User user = 1;
+    string hashedPassword = 2;
 }
 
 message DeleteUserRequest {

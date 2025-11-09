@@ -9,6 +9,7 @@ type User struct {
 	ID       string `gorm:"primaryKey"`
 	Name     string `gorm:"not null"`
 	Username string `gorm:"not null;uniqueIndex"`
+	Password string `gorm:"not null"`
 	Roles    []Role `gorm:"many2many:user_roles;"`
 }
 

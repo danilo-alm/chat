@@ -9,8 +9,6 @@ import "google/protobuf/timestamp.proto";
 service AuthService {
     rpc Login(LoginRequest) returns (LoginResponse);
     rpc RotateRefreshToken(RotateRefreshTokenRequest) returns (RotateRefreshTokenResponse);
-    rpc RegisterCredentials(RegisterCredentialsRequest) returns (RegisterCredentialsResponse);
-    rpc DeleteCredentials(DeleteCredentialsRequest) returns (DeleteCredentialsResponse);
 }
 
 message Tokens {
@@ -36,19 +34,3 @@ message RotateRefreshTokenRequest {
 message RotateRefreshTokenResponse {
     Tokens tokens = 1;
 }
-
-message RegisterCredentialsRequest {
-    string user_id = 1;
-    string username = 2;
-    string password = 3;
-}
-
-message RegisterCredentialsResponse {
-    Tokens tokens = 1;
-}
-
-message DeleteCredentialsRequest {
-    string user_id = 1;
-}
-
-message DeleteCredentialsResponse {}
