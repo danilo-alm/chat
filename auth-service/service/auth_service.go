@@ -8,9 +8,11 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -51,7 +53,7 @@ func (s *authService) Login(ctx context.Context, username, rawPassword string) (
 		username: userRes.User.Username,
 		roles:    extractRoleNames(userRes.User.Roles),
 	}
-	tokens, err := s.generateTokens(claims)
+	tokens, err := s.generateTokens(ctx, claims)
 
 	if err != nil {
 		return nil, err
@@ -61,28 +63,38 @@ func (s *authService) Login(ctx context.Context, username, rawPassword string) (
 }
 
 func (s *authService) RotateRefreshToken(ctx context.Context, oldToken string) (*Tokens, error) {
-	decodedClaims, err := decodeToken(oldToken, s.config.RefreshSecret)
-	if err != nil {
-		return nil, err
+	token, err := s.repository.GetRefreshToken(ctx, oldToken)
+	if errors.Is(err, repository.ErrEntityNotFound) {
+		return nil, status.Error(codes.Unauthenticated, "refresh token not found")
+	} else if err != nil {
+		log.Printf("failed to get refresh token: %v", err)
+		return nil, status.Error(codes.Unauthenticated, "failed to refresh token")
 	}
 
-	if time.Now().After(decodedClaims.ExpiresAt.Time) {
+	if time.Now().After(token.ExpiresAt) {
 		return nil, status.Error(codes.Unauthenticated, "refresh token expired")
 	}
 
-	claims := &claims{
-		userId:   decodedClaims.Subject,
-		username: decodedClaims.Username,
-		roles:    decodedClaims.Roles,
+	userReq := &userpb.GetUserByIdRequest{Id: token.UserID}
+	userRes, err := s.userService.GetUserById(ctx, userReq)
+	if err != nil {
+		log.Printf("failed to get user: %v", err)
+		return nil, status.Error(codes.Unauthenticated, "failed to refresh token")
 	}
 
-	newTokens, err := s.generateTokens(claims)
+	claims := &claims{
+		userId:   token.UserID,
+		username: userRes.User.Username,
+		roles:    extractRoleNames(userRes.User.Roles),
+	}
+	newTokens, err := s.generateTokens(ctx, claims)
 	if err != nil {
 		return nil, err
 	}
 
 	rotateDto := &dto.SaveRefreshToken{
 		RefreshToken: newTokens.Refresh,
+		UserID:       token.UserID,
 		Expiration:   newTokens.RefreshExp,
 	}
 	err = s.repository.RotateRefreshToken(ctx, oldToken, rotateDto)
@@ -97,25 +109,20 @@ func (s *authService) RotateRefreshToken(ctx context.Context, oldToken string) (
 	return newTokens, nil
 }
 
-func (s *authService) generateTokens(c *claims) (*Tokens, error) {
+func (s *authService) generateTokens(ctx context.Context, c *claims) (*Tokens, error) {
 	genericError := status.Error(codes.Internal, "failed to login")
 
-	tc := &tokenConfig{
-		accessSecret:  s.config.AccessSecret,
-		refreshSecret: s.config.RefreshSecret,
-		accessTTL:     s.config.AccessTTL,
-		refreshTTL:    s.config.RefreshTTL,
-	}
+	cfg := *s.config
 
-	access, accessExp, err := issueToken(c, tc.accessTTL, tc.accessSecret)
+	access, accessExp, err := issueJwtToken(c, cfg.AccessTTL, cfg.AccessSecret)
 	if err != nil {
 		log.Printf("failed to sign access token: %v", err)
 		return nil, genericError
 	}
 
-	refresh, refreshExp, err := issueToken(c, tc.refreshTTL, tc.refreshSecret)
+	refresh, refreshExp, err := s.issueAndSaveOpaqueToken(ctx, c.userId, cfg.RefreshTTL)
 	if err != nil {
-		log.Printf("failed to sign refresh token: %v", err)
+		log.Printf("failed to save refresh token: %v", err)
 		return nil, genericError
 	}
 
@@ -125,6 +132,25 @@ func (s *authService) generateTokens(c *claims) (*Tokens, error) {
 		Refresh:    refresh,
 		RefreshExp: refreshExp,
 	}, nil
+}
+
+// TODO: function for only issuing, no save. must be called on rotate
+func (s *authService) issueAndSaveOpaqueToken(ctx context.Context, userID string, TTL time.Duration) (string, time.Time, error) {
+	token := strings.ReplaceAll(uuid.NewString(), "-", "")
+	expiration := time.Now().Add(TTL)
+
+	saveDto := &dto.SaveRefreshToken{
+		RefreshToken: token,
+		UserID:       userID,
+		Expiration:   expiration,
+	}
+
+	if err := s.repository.SaveRefreshToken(ctx, saveDto); err != nil {
+		log.Printf("failed to save refresh token: %v", err)
+		return "", time.Time{}, status.Error(codes.Internal, "could not issue refresh token")
+	}
+
+	return token, expiration, nil
 }
 
 func comparePassword(hashedPassword, password string) error {
@@ -148,7 +174,7 @@ func extractRoleNames(roles []*userpb.Role) []string {
 	return names
 }
 
-func issueToken(c *claims, TTL time.Duration, secret []byte) (string, time.Time, error) {
+func issueJwtToken(c *claims, TTL time.Duration, secret []byte) (string, time.Time, error) {
 	now := time.Now()
 	exp := now.Add(TTL)
 	claims := jwtClaims{
@@ -163,25 +189,4 @@ func issueToken(c *claims, TTL time.Duration, secret []byte) (string, time.Time,
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	s, err := t.SignedString(secret)
 	return s, exp, err
-}
-
-func decodeToken(tokenString string, secret []byte) (*jwtClaims, error) {
-	claims := &jwtClaims{}
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, status.Error(codes.Unauthenticated, "invalid signing method")
-		}
-		return secret, nil
-	})
-
-	if err != nil {
-		log.Printf("failed to parse token: %v", err)
-		return nil, status.Error(codes.Unauthenticated, "invalid token")
-	}
-
-	if !token.Valid {
-		return nil, status.Error(codes.Unauthenticated, "invalid token")
-	}
-
-	return claims, nil
 }

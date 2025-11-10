@@ -16,9 +16,11 @@ services:
   user-service:
     build:
       context: .
-      dockerfile: ./user-service/Dockerfile
+      dockerfile: ./user-service/Dockerfile.dev
     environment:
       REFLECTION: true
+    volumes:
+      - ./user-service:/app
 
   user-db:
     image: mariadb:lts
@@ -28,11 +30,13 @@ services:
   auth-service:
     build:
       context: .
-      dockerfile: ./auth-service/Dockerfile
+      dockerfile: ./auth-service/Dockerfile.dev
     environment:
       ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET:-supersecrettoken}"
       REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET:-supersecretrefreshtoken}"
       REFLECTION: true
+    volumes:
+      - ./auth-service:/app
 
   auth-db:
     image: mariadb:lts

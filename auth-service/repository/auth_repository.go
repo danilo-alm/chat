@@ -51,7 +51,7 @@ func (r *gormAuthRepository) GetRefreshToken(ctx context.Context, token string) 
 }
 
 func (r *gormAuthRepository) DeleteRefreshTokenById(ctx context.Context, id string) error {
-	result := r.db.WithContext(ctx).Delete(&models.RefreshToken{ID: id})
+	result := r.db.WithContext(ctx).Where("ID = ?", id).Delete(&models.RefreshToken{})
 
 	if result.Error != nil {
 		return result.Error
@@ -66,7 +66,7 @@ func (r *gormAuthRepository) DeleteRefreshTokenById(ctx context.Context, id stri
 
 func (r *gormAuthRepository) RotateRefreshToken(ctx context.Context, oldToken string, newToken *dto.SaveRefreshToken) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Delete(&models.RefreshToken{Token: oldToken})
+		result := tx.Where("token = ?", oldToken).Delete(&models.RefreshToken{})
 
 		if result.Error != nil {
 			return result.Error
@@ -78,6 +78,7 @@ func (r *gormAuthRepository) RotateRefreshToken(ctx context.Context, oldToken st
 
 		rt := &models.RefreshToken{
 			Token:     newToken.RefreshToken,
+			UserID:    newToken.UserID,
 			ExpiresAt: newToken.Expiration,
 		}
 

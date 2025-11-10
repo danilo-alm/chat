@@ -1,0 +1,16 @@
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache protobuf protobuf-dev
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest \
+    && go install github.com/air-verse/air@latest
+
+WORKDIR /app
+
+ENV PATH="$PATH:$(go env GOPATH)/bin"
+
+COPY auth-service/go.mod auth-service/go.sum ./
+RUN go mod download
+
+CMD ["air"]
