@@ -39,23 +39,28 @@ func NewAuthService(repository repository.AuthRepository, userService userpb.Use
 
 func (s *authService) Login(ctx context.Context, username, rawPassword string) (*Tokens, error) {
 	userReq := &userpb.GetCredentialsRequest{Username: username}
-	userRes, err := s.userService.GetCredentials(ctx, userReq)
+	pbRes, err := s.userService.GetCredentials(ctx, userReq)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = comparePassword(userRes.GetHashedPassword(), rawPassword); err != nil {
+	if err = comparePassword(pbRes.GetHashedPassword(), rawPassword); err != nil {
 		return nil, err
 	}
 
+	user := pbRes.GetUser()
 	claims := &claims{
-		userId:   userRes.User.Id,
-		username: userRes.User.Username,
-		roles:    extractRoleNames(userRes.User.Roles),
+		userId:   user.Id,
+		username: user.Username,
+		roles:    extractRoleNames(user.Roles),
 	}
-	tokens, err := s.generateTokens(ctx, claims)
 
+	tokens, err := s.generateTokens(claims)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = s.saveRefreshToken(ctx, tokens.Refresh, user.Id, tokens.RefreshExp); err != nil {
 		return nil, err
 	}
 
@@ -87,7 +92,7 @@ func (s *authService) RotateRefreshToken(ctx context.Context, oldToken string) (
 		username: userRes.User.Username,
 		roles:    extractRoleNames(userRes.User.Roles),
 	}
-	newTokens, err := s.generateTokens(ctx, claims)
+	newTokens, err := s.generateTokens(claims)
 	if err != nil {
 		return nil, err
 	}
@@ -109,22 +114,16 @@ func (s *authService) RotateRefreshToken(ctx context.Context, oldToken string) (
 	return newTokens, nil
 }
 
-func (s *authService) generateTokens(ctx context.Context, c *claims) (*Tokens, error) {
-	genericError := status.Error(codes.Internal, "failed to login")
-
+func (s *authService) generateTokens(c *claims) (*Tokens, error) {
 	cfg := *s.config
 
 	access, accessExp, err := issueJwtToken(c, cfg.AccessTTL, cfg.AccessSecret)
 	if err != nil {
 		log.Printf("failed to sign access token: %v", err)
-		return nil, genericError
+		return nil, status.Error(codes.Internal, "failed to login")
 	}
 
-	refresh, refreshExp, err := s.issueAndSaveOpaqueToken(ctx, c.userId, cfg.RefreshTTL)
-	if err != nil {
-		log.Printf("failed to save refresh token: %v", err)
-		return nil, genericError
-	}
+	refresh, refreshExp := issueOpaqueToken(cfg.RefreshTTL)
 
 	return &Tokens{
 		Access:     access,
@@ -134,11 +133,7 @@ func (s *authService) generateTokens(ctx context.Context, c *claims) (*Tokens, e
 	}, nil
 }
 
-// TODO: function for only issuing, no save. must be called on rotate
-func (s *authService) issueAndSaveOpaqueToken(ctx context.Context, userID string, TTL time.Duration) (string, time.Time, error) {
-	token := strings.ReplaceAll(uuid.NewString(), "-", "")
-	expiration := time.Now().Add(TTL)
-
+func (s *authService) saveRefreshToken(ctx context.Context, token, userID string, expiration time.Time) error {
 	saveDto := &dto.SaveRefreshToken{
 		RefreshToken: token,
 		UserID:       userID,
@@ -147,10 +142,16 @@ func (s *authService) issueAndSaveOpaqueToken(ctx context.Context, userID string
 
 	if err := s.repository.SaveRefreshToken(ctx, saveDto); err != nil {
 		log.Printf("failed to save refresh token: %v", err)
-		return "", time.Time{}, status.Error(codes.Internal, "could not issue refresh token")
+		return status.Error(codes.Internal, "could not issue refresh token")
 	}
 
-	return token, expiration, nil
+	return nil
+}
+
+func issueOpaqueToken(TTL time.Duration) (string, time.Time) {
+	token := strings.ReplaceAll(uuid.NewString(), "-", "")
+	expiration := time.Now().Add(TTL)
+	return token, expiration
 }
 
 func comparePassword(hashedPassword, password string) error {
