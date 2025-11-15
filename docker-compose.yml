@@ -25,8 +25,6 @@ services:
     depends_on:
       user-db:
         condition: service_healthy
-      auth-service:
-        condition: service_started
 
   user-db:
     image: mariadb:lts
@@ -54,6 +52,8 @@ services:
       GRPC_PORT: 50051
     depends_on:
       auth-db:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
 
   auth-db:
